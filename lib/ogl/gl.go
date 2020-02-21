@@ -57,16 +57,16 @@ func Close() {
 }
 
 func PutPixel(x, y int, color byte) {
-	index := x + y*width
+	index := (x + y*width) * 3
 	if index < 0 {
 		return
 	}
-	if index*3+2 > len(pixelArr)-1 {
+	if index+2 > len(pixelArr)-1 {
 		return
 	}
-	pixelArr[index*3] = color
-	pixelArr[index*3+1] = color
-	pixelArr[index*3+2] = color
+	pixelArr[index] = color
+	pixelArr[index+1] = color
+	pixelArr[index+2] = color
 }
 
 func GetWindowWidth() int {
