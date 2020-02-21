@@ -1,10 +1,15 @@
 package main
 
+// #include <string.h>
+import "C"
+
 import (
 	"fmt"
 	"log"
 	"math/rand"
 	"runtime"
+	"time"
+	"unsafe"
 
 	"github.com/go-gl/gl/v2.1/gl"
 	"github.com/go-gl/glfw/v3.2/glfw"
@@ -19,6 +24,7 @@ var pixelArr []byte
 
 func init() {
 	runtime.LockOSThread()
+	pixelArr = make([]byte, width*height*3)
 }
 
 func main() {
@@ -45,6 +51,16 @@ func main() {
 	gl.GenBuffers(1, &buffer)
 	gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, buffer)
 	gl.BufferData(gl.PIXEL_UNPACK_BUFFER, width*height*3, nil, gl.STATIC_DRAW)
+	go func() {
+		for {
+			for y := 0; y < height; y++ {
+				for x := 0; x < width; x++ {
+					putPixel(x, y, getRandValue(0, 255))
+				}
+			}
+			time.Sleep(20 * time.Millisecond)
+		}
+	}()
 	for !window.ShouldClose() {
 		draw(buffer, window)
 	}
@@ -59,12 +75,10 @@ func draw(buffer uint32, window *glfw.Window) {
 	if !gl.UnmapBuffer(gl.PIXEL_UNPACK_BUFFER) {
 		return
 	}
-	pixelArr = (*[width * height * 3]byte)(pboPtr)[:width*height*3]
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			putPixel(x, y, getRandValue(0, 255))
-		}
-	}
+	pboArr := (*[width * height * 3]byte)(pboPtr)[:width*height*3]
+	l := C.ulong(len(pixelArr))
+	C.memcpy(unsafe.Pointer(&pboArr[0]), C.CBytes(pixelArr), l)
+
 	gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, buffer)
 	gl.DrawPixels(width, height, gl.RGB, gl.UNSIGNED_BYTE, nil)
 	glfw.PollEvents()
