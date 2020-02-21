@@ -18,33 +18,33 @@ const (
 var pixelArr []byte
 
 func init() {
-    runtime.LockOSThread()
+	runtime.LockOSThread()
 }
 
 func main() {
 	if err := glfw.Init(); err != nil {
-        log.Fatalln("failed to initialize glfw:", err)
-    }
-    defer glfw.Terminate()
+		log.Fatalln("failed to initialize glfw:", err)
+	}
+	defer glfw.Terminate()
 	glfw.WindowHint(glfw.Resizable, glfw.False)
 	glfw.WindowHint(glfw.ContextVersionMajor, 2)
 	glfw.WindowHint(glfw.ContextVersionMinor, 1)
-    window, err := glfw.CreateWindow(640, 480, "Title", nil, nil)
-    if err != nil {
-        panic(err)
-    }
-    window.MakeContextCurrent()
+	window, err := glfw.CreateWindow(640, 480, "Title", nil, nil)
+	if err != nil {
+		panic(err)
+	}
+	window.MakeContextCurrent()
 
-    if err := gl.Init(); err != nil {
-        log.Fatalln("failed to initialize gl bindings:", err)
-    }
+	if err := gl.Init(); err != nil {
+		log.Fatalln("failed to initialize gl bindings:", err)
+	}
 
-    version := gl.GoStr(gl.GetString(gl.VERSION))
-    fmt.Println("OpenGL version", version)
+	version := gl.GoStr(gl.GetString(gl.VERSION))
+	fmt.Println("OpenGL version", version)
 	var buffer uint32
 	gl.GenBuffers(1, &buffer)
 	gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, buffer)
-	gl.BufferData(gl.PIXEL_UNPACK_BUFFER, width * height * 3, nil, gl.STATIC_DRAW)
+	gl.BufferData(gl.PIXEL_UNPACK_BUFFER, width*height*3, nil, gl.STATIC_DRAW)
 	for !window.ShouldClose() {
 		draw(buffer, window)
 	}
@@ -59,7 +59,7 @@ func draw(buffer uint32, window *glfw.Window) {
 	if !gl.UnmapBuffer(gl.PIXEL_UNPACK_BUFFER) {
 		return
 	}
-	pixelArr = (*[width * height * 3]byte)(pboPtr)[:width * height * 3]
+	pixelArr = (*[width * height * 3]byte)(pboPtr)[:width*height*3]
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
 			putPixel(x, y, getRandValue(0, 255))
@@ -72,7 +72,7 @@ func draw(buffer uint32, window *glfw.Window) {
 }
 
 func getRandValue(min, max int) byte {
-	return byte(rand.Intn(max - min) + min)
+	return byte(rand.Intn(max-min) + min)
 }
 
 func putPixel(x, y int, color byte) {
