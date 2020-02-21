@@ -31,10 +31,12 @@ func main() {
 		}(i)
 	}
 	go func() {
-		if mlib.Rand(150) > 25 {
-			wind.SetDirection(mlib.Srand(5))
+		for {
+			if mlib.Rand(150) > 25 {
+				wind.SetDirection(mlib.Srand(5))
+			}
+			time.Sleep(1 * time.Second)
 		}
-		time.Sleep(1 * time.Second)
 	}()
 	for {
 		if ogl.IsExit() {
