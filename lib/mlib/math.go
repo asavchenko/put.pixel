@@ -37,6 +37,28 @@ func Sign(x float64) int {
 /**
  *
  */
+func SignInt(x int) int {
+	if x >= 0 {
+		return 1
+	}
+
+	return -1
+}
+
+/**
+ *
+ */
+func AbsInt(x int) int {
+	if x >= 0 {
+		return x
+	}
+
+	return -x
+}
+
+/**
+ *
+ */
 func Srand(n int) int {
 	if Rand(2) == 1 {
 		return -Rand(n)
