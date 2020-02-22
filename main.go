@@ -12,23 +12,19 @@ import (
 
 const numFlakes = 2000
 
+var snowFlakes []*snow.Flake
+
 func init() {
 	runtime.LockOSThread()
 	wind.SetDirection(5)
+	snowFlakes = make([]*snow.Flake, numFlakes)
 }
 
 func main() {
 	ogl.Init()
 	defer ogl.Close()
 	for i := 0; i < numFlakes; i++ {
-		go func(i int) {
-			fl := snow.GetNew()
-			time.Sleep(10 * time.Millisecond * time.Duration(mlib.Rand(i)))
-			for {
-				fl.Move()
-				time.Sleep(16 * time.Millisecond)
-			}
-		}(i)
+		snowFlakes[i] = snow.GetNew()
 	}
 	go func() {
 		for {
@@ -42,7 +38,9 @@ func main() {
 		if ogl.IsExit() {
 			break
 		}
-
+		for i := 0; i < numFlakes; i++ {
+			snowFlakes[i].Move()
+		}
 		ogl.Draw()
 		time.Sleep(17 * time.Millisecond)
 	}
