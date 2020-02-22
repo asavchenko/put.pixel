@@ -19,7 +19,7 @@ const (
 	Ym     = height - 1
 )
 
-var pixelArr []byte
+var screen []byte
 var pixelArr1 []byte
 var pixelArr2 []byte
 var yTable []int
@@ -39,7 +39,6 @@ func init() {
 	keyCombinationCallbacks = make(map[string]map[string]interface{}, 0)
 	pressedKeys = make([]glfw.Key, 0)
 	doubleBuffering = true
-	pixelArr = make([]byte, width*height*3)
 	pixelArr1 = make([]byte, width*height*3)
 	pixelArr2 = make([]byte, width*height*3)
 	yTable = make([]int, height)
@@ -85,6 +84,7 @@ func Init(fullScreen bool) {
 	lastX, lastY = window.GetPos()
 	lastWidth, lastHeight = window.GetSize()
 	window.SetKeyCallback(onKeyPress)
+	screen = pixelArr1
 }
 
 func Close() {
@@ -111,6 +111,10 @@ func DisableDoubleBuffering() {
 func draw(window *glfw.Window, run func()) {
 	if doubleBuffering {
 		showPrevScreen(window)
+		screen = pixelArr2
+		if index == 1 {
+			screen = pixelArr1
+		}
 		run()
 		glfw.PollEvents()
 		return
@@ -123,7 +127,7 @@ func draw(window *glfw.Window, run func()) {
 		return
 	}
 
-	pixelArr = (*[width * height * 3]byte)(pboPtr)[:width*height*3]
+	screen = (*[width * height * 3]byte)(pboPtr)[:width*height*3]
 	run()
 	gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, buffer)
 	gl.DrawPixels(width, height, gl.RGB, gl.UNSIGNED_BYTE, nil)
@@ -166,7 +170,7 @@ func SwapBuffers() {
 
 func ClearScreen() {
 	if !doubleBuffering {
-		C.memset(unsafe.Pointer(&pixelArr[0]), 0, width*height*3)
+		C.memset(unsafe.Pointer(&screen[0]), 0, width*height*3)
 		return
 	}
 	if index == 0 {

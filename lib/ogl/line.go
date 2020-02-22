@@ -1,6 +1,12 @@
 package ogl
 
-import "assa.com/put.pixel/lib/mlib"
+// #include <string.h>
+import "C"
+
+import (
+	"assa.com/put.pixel/lib/mlib"
+	"unsafe"
+)
 
 func Line(xa, ya, xb, yb int, color byte) int {
 	x1 := xa
@@ -564,8 +570,20 @@ func Line(xa, ya, xb, yb int, color byte) int {
 	default:
 		visible = 0
 	}
-	if visible != 0 {
-		_line(x1, y1, x2, y2, color)
+	if visible > 0 {
+		if x1 > Xm {
+			x1 = Xm
+		}
+		if y1 > Ym {
+			y1 = Ym
+		}
+		if x2 > Xm {
+			x2 = Xm
+		}
+		if y2 > Ym {
+			y2 = Ym
+		}
+		__line(x1, y1, x2, y2, color)
 	}
 
 	return visible
@@ -589,7 +607,7 @@ func _line(x1, y1, x2, y2 int, color byte) {
 	e := dy - dx_
 
 	for k := 0; k < dx_; k++ {
-		PutPixel(x, y, color)
+		putPixel(x, y, color)
 		for {
 			if e < 0 {
 				break
@@ -607,5 +625,168 @@ func _line(x1, y1, x2, y2 int, color byte) {
 			x += sx
 		}
 		e += dy
+	}
+}
+
+func __line(x1, y1, x2, y2 int, color byte) {
+	if x2 == x1 {
+		if y1 < y2 {
+			for k := y1; k < y2+1; k++ {
+				putPixel(x1, k, color)
+			}
+		} else {
+			for k := y2; k < y1+1; k++ {
+				putPixel(x1, k, color)
+			}
+		}
+		return
+	}
+
+	if y2 == y1 {
+		if x1 < x2 {
+			C.memset(unsafe.Pointer(&(screen[(x1+yTable[y1])*3])), C.int(color), C.ulong((x2-x1+1)*3))
+			return
+		}
+		C.memset(unsafe.Pointer(&(screen[(x2+yTable[y1])*3])), C.int(color), C.ulong((x1-x2+1)*3))
+		return
+	}
+	x := x1
+	y := y1
+
+	dx := (mlib.AbsInt(x2 - x1)) << 1
+	dy := (mlib.AbsInt(y2 - y1)) << 1
+
+	if x2 > x1 {
+		if y2 > y1 {
+			if dy > dx {
+				dy_ := dy >> 1
+				e := dx - dy_
+				for k := 0; k < dy_; k++ {
+					putPixel(x, y, color)
+					for {
+						if e < 0 {
+							break
+						}
+						x++
+						e -= dy
+					}
+					y++
+					e += dx
+				}
+			} else {
+				dx_ := dx >> 1
+				e := dy - dx_
+				for k := 0; k < dx_; k++ {
+					putPixel(x, y, color)
+					for {
+						if e < 0 {
+							break
+						}
+						y++
+						e -= dx
+					}
+					x++
+					e += dy
+				}
+			}
+		} else if y2 < y1 {
+			if dy > dx {
+				dy_ := dy >> 1
+				e := dx - dy_
+				for k := 0; k < dy_; k++ {
+					putPixel(x, y, color)
+					for {
+						if e < 0 {
+							break
+						}
+						x++
+						e -= dy
+					}
+					y--
+					e += dx
+				}
+			} else {
+				dx_ := dx >> 1
+				e := dy - dx_
+				for k := 0; k < dx_; k++ {
+					putPixel(x, y, color)
+					for {
+						if e < 0 {
+							break
+						}
+						y--
+						e -= dx
+					}
+					x++
+					e += dy
+				}
+			}
+		}
+	} else if x2 < x1 {
+		if y2 > y1 {
+			if dy > dx {
+				dy_ := dy >> 1
+				e := dx - dy_
+				for k := 0; k < dy_; k++ {
+					putPixel(x, y, color)
+					for {
+						if e < 0 {
+							break
+						}
+						x++
+						e -= dy
+					}
+					y++
+					e += dx
+				}
+			} else {
+				dx_ := dx >> 1
+				e := dy - dx_
+				for k := 0; k < dx_; k++ {
+					putPixel(x, y, color)
+					for {
+						if e < 0 {
+							break
+						}
+						y++
+						e -= dx
+					}
+					x--
+					e += dy
+				}
+			}
+		} else if y2 < y1 {
+			if dy > dx {
+				dy_ := dy >> 1
+				e := dx - dy_
+				for k := 0; k < dy_; k++ {
+					putPixel(x, y, color)
+					for {
+						if e < 0 {
+							break
+						}
+						x++
+						e -= dy
+					}
+					y--
+					e += dx
+				}
+			} else {
+				dx_ := dx >> 1
+				e := dy - dx_
+				for k := 0; k < dx_; k++ {
+					putPixel(x, y, color)
+					for {
+						if e < 0 {
+							break
+						}
+						y--
+						e -= dx
+					}
+					x--
+					e += dy
+				}
+			}
+		}
 	}
 }

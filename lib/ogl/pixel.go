@@ -9,30 +9,17 @@ func PutPixel(x, y int, color byte) {
 		return
 	}
 
-	if !doubleBuffering {
-		if i+2 > len(pixelArr)-1 {
-			return
-		}
-		pixelArr[i] = color
-		pixelArr[i+1] = color
-		pixelArr[i+2] = color
+	if i+2 > len(screen)-1 {
 		return
 	}
+	screen[i] = color
+	screen[i+1] = color
+	screen[i+2] = color
+}
 
-	if index == 0 {
-		if i+2 > len(pixelArr1)-1 {
-			return
-		}
-		pixelArr1[i] = color
-		pixelArr1[i+1] = color
-		pixelArr1[i+2] = color
-		return
-	}
-
-	if i+2 > len(pixelArr2)-1 {
-		return
-	}
-	pixelArr2[i] = color
-	pixelArr2[i+1] = color
-	pixelArr2[i+2] = color
+func putPixel(x, y int, color byte) {
+	i := (x + yTable[y]) * 3
+	screen[i] = color
+	screen[i+1] = color
+	screen[i+2] = color
 }
