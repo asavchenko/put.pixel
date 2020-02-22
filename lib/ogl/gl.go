@@ -84,70 +84,7 @@ func Init(fullScreen bool) {
 
 	lastX, lastY = window.GetPos()
 	lastWidth, lastHeight = window.GetSize()
-	window.SetKeyCallback(func(w *glfw.Window, keyPressed glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
-		if action == glfw.Repeat {
-			pressedKeys = append(pressedKeys, keyPressed)
-		}
-		if action == glfw.Release {
-			for i, key := range pressedKeys {
-				if key == keyPressed {
-					pressedKeys = append(pressedKeys[:i], pressedKeys[i+1:]...)
-				}
-			}
-		}
-		for state, keys := range keyCallbacks {
-			for key, callbacks := range keys {
-				if key != keyPressed {
-					continue
-				}
-				for _, callback := range callbacks {
-					switch state {
-					case "press":
-						if action == glfw.Action(glfw.Press) {
-							callback()
-						}
-					case "up":
-						if action == glfw.Action(glfw.Release) {
-							callback()
-						}
-					case "down":
-						if action == glfw.Action(glfw.Repeat) {
-							callback()
-						}
-					}
-
-				}
-			}
-		}
-		if action != glfw.Action(glfw.Press) && action != glfw.Action(glfw.Repeat) {
-			return
-		}
-
-		for _, data := range keyCombinationCallbacks {
-			keys := data["keys"].([]glfw.Key)
-			if len(keys) < 1 {
-				continue
-			}
-			if keyPressed != keys[len(keys)-1] {
-				continue
-			}
-			callback := data["callback"].(func())
-			canFire := true
-			for i := 0; i < len(keys)-1; i++ {
-				for _, k := range pressedKeys {
-					if keys[i] != k {
-						canFire = false
-						break
-					}
-				}
-			}
-			if !canFire {
-				continue
-			}
-
-			callback()
-		}
-	})
+	window.SetKeyCallback(onKeyPress)
 }
 
 func Close() {

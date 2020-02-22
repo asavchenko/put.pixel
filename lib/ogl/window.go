@@ -16,10 +16,6 @@ func GoFullScreen() {
 	}
 	mon := glfw.GetPrimaryMonitor()
 	vmode := mon.GetVideoMode()
-	//width := vmode.Width
-	//height := vmode.Height
-	//lastX, lastY = window.GetPos()
-	//lastWidth, lastHeight = window.GetSize()
 	window.SetMonitor(mon, 0, 0, width, height, vmode.RefreshRate)
 }
 
