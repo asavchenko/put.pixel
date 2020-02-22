@@ -6,7 +6,6 @@ import "C"
 import (
 	"fmt"
 	"log"
-	"unsafe"
 
 	"github.com/go-gl/gl/v2.1/gl"
 	"github.com/go-gl/glfw/v3.2/glfw"
@@ -49,7 +48,7 @@ func Init() {
 
 	gl.GenBuffers(1, &buffer)
 	gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, buffer)
-	gl.BufferData(gl.PIXEL_UNPACK_BUFFER, width*height*3, nil, gl.STATIC_DRAW)
+	gl.BufferData(gl.PIXEL_UNPACK_BUFFER, width*height*3, nil, gl.DYNAMIC_DRAW)
 }
 
 func Close() {
@@ -95,9 +94,8 @@ func draw(buffer uint32, window *glfw.Window) {
 	if !gl.UnmapBuffer(gl.PIXEL_UNPACK_BUFFER) {
 		return
 	}
-	pboArr := (*[width * height * 3]byte)(pboPtr)[:width*height*3]
-	l := C.ulong(len(pixelArr))
-	C.memcpy(unsafe.Pointer(&pboArr[0]), C.CBytes(pixelArr), l)
+
+	pixelArr = (*[width * height * 3]byte)(pboPtr)[:width*height*3]
 
 	gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, buffer)
 	gl.DrawPixels(width, height, gl.RGB, gl.UNSIGNED_BYTE, nil)
