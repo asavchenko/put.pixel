@@ -15,6 +15,7 @@ type Flake struct {
 	WindDir int
 	Color   byte
 	shape   [][]int
+	frame   int
 	wH      int
 	wW      int
 }
@@ -37,16 +38,20 @@ func (s *Flake) reset() {
 	s.Type = mlib.Rand(5)
 	s.initType()
 	s.Speed = mlib.Rand(5)
-	s.Dir = mlib.Srand(1)
+	s.Dir = mlib.Srand(s.WindDir)
 	s.Color = byte(mlib.Rand(255))
 }
 
 func (s *Flake) Move() {
 	s.hide()
-	s.moveLogic()
-	s.colorLogic()
-	s.directionLogic()
+	if s.frame%s.Speed == 0 {
+		s.fallLogic()
+	}
+	if s.frame%s.Dir == 0 {
+		s.blowLogic()
+	}
 	s.show()
+	s.frame++
 }
 
 func (s *Flake) colorLogic() {
@@ -82,13 +87,16 @@ func (s *Flake) directionLogic() {
 	}
 }
 
-func (s *Flake) moveLogic() {
-	if s.Y-s.Speed > 0 {
-		s.Y -= s.Speed
-		s.X += s.Dir
+func (s *Flake) fallLogic() {
+	if s.Y-1 > 0 {
+		s.Y--
 		return
 	}
 	s.reset()
+}
+
+func (s *Flake) blowLogic() {
+	s.X += mlib.Sign(float64(s.Dir))
 }
 
 func (s *Flake) initType() {
@@ -118,7 +126,7 @@ func (s *Flake) initType() {
 }
 
 func (s *Flake) hide() {
-	s.draw(s.shape, s.X, s.Y, 0)
+	s.draw(s.shape, s.X, s.Y, s.Color/8)
 }
 
 func (s *Flake) show() {

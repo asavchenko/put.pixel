@@ -1,6 +1,16 @@
 package mlib
 
-import "math/rand"
+import (
+	"math/rand"
+	"time"
+)
+
+var r1 *rand.Rand
+
+func init() {
+	s1 := rand.NewSource(time.Now().UnixNano())
+	r1 = rand.New(s1)
+}
 
 /**
  *
@@ -10,7 +20,7 @@ func Rand(n int) int {
 		n = 1
 	}
 
-	return rand.Intn(n) + 1
+	return r1.Intn(n) + 1
 }
 
 /**

@@ -38,11 +38,13 @@ func main() {
 		if ogl.IsExit() {
 			break
 		}
-		for i := 0; i < numFlakes; i++ {
-			snowFlakes[i].Move()
-		}
+
+		ogl.Draw(func() {
+			for i := 0; i < numFlakes; i++ {
+				snowFlakes[i].Move()
+			}
+		})
 		ogl.SwapBuffers()
-		ogl.Draw()
-		time.Sleep(17 * time.Millisecond)
+		time.Sleep(16 * time.Millisecond)
 	}
 }
