@@ -16,12 +16,15 @@ const (
 	height = 480
 )
 
-var pixelArr []byte
+var pixelArr1 []byte
+var pixelArr2 []byte
 var window *glfw.Window
-var buffer uint32
+var buffers [2]uint32
+var index int
 
 func init() {
-	pixelArr = make([]byte, width*height*3)
+	pixelArr1 = make([]byte, width*height*3)
+	pixelArr2 = make([]byte, width*height*3)
 }
 
 func Init() {
@@ -46,9 +49,13 @@ func Init() {
 	version := gl.GoStr(gl.GetString(gl.VERSION))
 	fmt.Println("OpenGL version", version)
 
-	gl.GenBuffers(1, &buffer)
-	gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, buffer)
-	gl.BufferData(gl.PIXEL_UNPACK_BUFFER, width*height*3, nil, gl.DYNAMIC_DRAW)
+	gl.GenBuffers(2, &buffers[0])
+
+	gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, buffers[0])
+	gl.BufferData(gl.PIXEL_UNPACK_BUFFER, width*height*3, gl.Ptr(pixelArr1), gl.DYNAMIC_DRAW)
+
+	gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, buffers[1])
+	gl.BufferData(gl.PIXEL_UNPACK_BUFFER, width*height*3, gl.Ptr(pixelArr2), gl.DYNAMIC_DRAW)
 }
 
 func Close() {
@@ -56,16 +63,20 @@ func Close() {
 }
 
 func PutPixel(x, y int, color byte) {
-	index := (x + y*width) * 3
-	if index < 0 {
+	i := (x + y*width) * 3
+	if i < 0 {
 		return
 	}
-	if index+2 > len(pixelArr)-1 {
+	pixelArr := pixelArr2
+	if index == 0 {
+		pixelArr = pixelArr1
+	}
+	if i+2 > len(pixelArr)-1 {
 		return
 	}
-	pixelArr[index] = color
-	pixelArr[index+1] = color
-	pixelArr[index+2] = color
+	pixelArr[i] = color
+	pixelArr[i+1] = color
+	pixelArr[i+2] = color
 }
 
 func GetWindowWidth() int {
@@ -81,24 +92,27 @@ func IsExit() bool {
 }
 func Draw() {
 	if !window.ShouldClose() {
-		draw(buffer, window)
+		draw(window)
 	}
 }
 
-func draw(buffer uint32, window *glfw.Window) {
+func draw(window *glfw.Window) {
 	gl.Clear(gl.COLOR_BUFFER_BIT)
-	pboPtr := gl.MapBuffer(gl.PIXEL_UNPACK_BUFFER, gl.WRITE_ONLY)
-	if pboPtr == nil {
-		return
-	}
-	if !gl.UnmapBuffer(gl.PIXEL_UNPACK_BUFFER) {
-		return
-	}
-
-	pixelArr = (*[width * height * 3]byte)(pboPtr)[:width*height*3]
-
-	gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, buffer)
+	gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, buffers[index])
 	gl.DrawPixels(width, height, gl.RGB, gl.UNSIGNED_BYTE, nil)
 	glfw.PollEvents()
+}
+
+func SwapBuffers() {
+	index++
+	if index > 1 {
+		index = 0
+	}
+	gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, buffers[index])
+	if index == 0 {
+		gl.BufferData(gl.PIXEL_UNPACK_BUFFER, width*height*3, gl.Ptr(pixelArr1), gl.DYNAMIC_DRAW)
+	} else {
+		gl.BufferData(gl.PIXEL_UNPACK_BUFFER, width*height*3, gl.Ptr(pixelArr2), gl.DYNAMIC_DRAW)
+	}
 	window.SwapBuffers()
 }

@@ -1,8 +1,6 @@
 package snow
 
 import (
-	"time"
-
 	"assa.com/put.pixel/lib/mlib"
 	"assa.com/put.pixel/lib/ogl"
 	"assa.com/put.pixel/src/wind"
@@ -30,19 +28,6 @@ func GetNew() *Flake {
 	wind.Subscribe(func(windDir int) {
 		s.WindDir = windDir
 	})
-	go func() {
-		for {
-			time.Sleep(200 * time.Second)
-			s.colorLogic()
-		}
-	}()
-	go func() {
-		for {
-			time.Sleep(200 * time.Second)
-			s.directionLogic()
-		}
-	}()
-
 	return s
 }
 
@@ -59,6 +44,8 @@ func (s *Flake) reset() {
 func (s *Flake) Move() {
 	s.hide()
 	s.moveLogic()
+	s.colorLogic()
+	s.directionLogic()
 	s.show()
 }
 
