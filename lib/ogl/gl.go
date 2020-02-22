@@ -6,6 +6,7 @@ import "C"
 import (
 	"fmt"
 	"log"
+	"unsafe"
 
 	"github.com/go-gl/gl/v2.1/gl"
 	"github.com/go-gl/glfw/v3.2/glfw"
@@ -21,7 +22,7 @@ var window *glfw.Window
 var buffer uint32
 
 func init() {
-	pixelArr = make([]byte, width*height*3)
+	pixelArr = make([]byte, width*height*4)
 }
 
 func Init() {
@@ -48,15 +49,15 @@ func Init() {
 
 	gl.GenBuffers(1, &buffer)
 	gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, buffer)
-	gl.BufferData(gl.PIXEL_UNPACK_BUFFER, width*height*3, nil, gl.DYNAMIC_DRAW)
+	gl.BufferData(gl.PIXEL_UNPACK_BUFFER, width*height*4, nil, gl.DYNAMIC_DRAW)
 }
 
 func Close() {
 	glfw.Terminate()
 }
 
-func PutPixel(x, y int, color byte) {
-	index := (x + y*width) * 3
+func PutPixel(x, y int, color byte, alpha byte) {
+	index := (x + y*width) * 4
 	if index < 0 {
 		return
 	}
@@ -66,6 +67,7 @@ func PutPixel(x, y int, color byte) {
 	pixelArr[index] = color
 	pixelArr[index+1] = color
 	pixelArr[index+2] = color
+	pixelArr[index+3] = alpha
 }
 
 func GetWindowWidth() int {
@@ -79,14 +81,13 @@ func GetWindowHeight() int {
 func IsExit() bool {
 	return window.ShouldClose()
 }
-func Draw() {
+func Draw(run func()) {
 	if !window.ShouldClose() {
-		draw(buffer, window)
+		draw(buffer, window, run)
 	}
 }
 
-func draw(buffer uint32, window *glfw.Window) {
-	gl.Clear(gl.COLOR_BUFFER_BIT)
+func draw(buffer uint32, window *glfw.Window, run func()) {
 	pboPtr := gl.MapBuffer(gl.PIXEL_UNPACK_BUFFER, gl.WRITE_ONLY)
 	if pboPtr == nil {
 		return
@@ -95,10 +96,16 @@ func draw(buffer uint32, window *glfw.Window) {
 		return
 	}
 
-	pixelArr = (*[width * height * 3]byte)(pboPtr)[:width*height*3]
-
+	pixelArr = (*[width * height * 4]byte)(pboPtr)[:width*height*4]
+	ClearScreen()
+	run()
 	gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, buffer)
-	gl.DrawPixels(width, height, gl.RGB, gl.UNSIGNED_BYTE, nil)
-	glfw.PollEvents()
+	gl.DrawPixels(width, height, gl.RGBA, gl.UNSIGNED_BYTE, nil)
+	gl.Flush()
 	window.SwapBuffers()
+	glfw.PollEvents()
+}
+
+func ClearScreen() {
+	C.memset(unsafe.Pointer(&pixelArr[0]), 0, width*height*4)
 }
