@@ -9,6 +9,7 @@ import (
 )
 
 func Line(xa, ya, xb, yb int, color byte) int {
+	yb = Ym - yb
 	x1 := xa
 	y1 := ya
 
@@ -188,7 +189,7 @@ func Line(xa, ya, xb, yb int, color byte) int {
 		y1 = ya - xa*(yb-ya)/(xb-xa)
 		x1 = 0
 		if y1 > Ym {
-			x1 = xb * (Ym - ya) / (yb - y1)
+			x1 = xb * (Ym - y1) / (yb - y1)
 			y1 = Ym
 		}
 	case 0x06:
@@ -571,18 +572,6 @@ func Line(xa, ya, xb, yb int, color byte) int {
 		visible = 0
 	}
 	if visible > 0 {
-		if x1 > Xm {
-			x1 = Xm
-		}
-		if y1 > Ym {
-			y1 = Ym
-		}
-		if x2 > Xm {
-			x2 = Xm
-		}
-		if y2 > Ym {
-			y2 = Ym
-		}
 		__line(x1, y1, x2, y2, color)
 	}
 
