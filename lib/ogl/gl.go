@@ -1,12 +1,8 @@
 package ogl
 
-// #include <string.h>
-import "C"
-
 import (
 	"fmt"
 	"log"
-	"unsafe"
 
 	"github.com/go-gl/gl/v2.1/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
@@ -169,14 +165,10 @@ func SwapBuffers() {
 }
 
 func ClearScreen() {
-	if !doubleBuffering {
-		C.memset(unsafe.Pointer(&screen[0]), 0, width*height*3)
-		return
+	l := width * height * 3
+	for i := 0; i < l; i++ {
+		screen[i] = 0
 	}
-	if index == 0 {
-		C.memset(unsafe.Pointer(&pixelArr1[0]), 0, width*height*3)
-		return
-	}
-
-	C.memset(unsafe.Pointer(&pixelArr2[0]), 0, width*height*3)
+	// C.memset(unsafe.Pointer(&screen[0]), 0, width*height*3)
+	return
 }

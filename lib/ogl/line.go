@@ -5,7 +5,6 @@ import "C"
 
 import (
 	"assa.com/put.pixel/lib/mlib"
-	"unsafe"
 )
 
 func Line(xa, ya, xb, yb int, color byte) int {
@@ -633,10 +632,20 @@ func __line(x1, y1, x2, y2 int, color byte) {
 
 	if y2 == y1 {
 		if x1 < x2 {
-			C.memset(unsafe.Pointer(&(screen[(x1+yTable[y1])*3])), C.int(color), C.ulong((x2-x1+1)*3))
+			from := (x1 + yTable[y1]) * 3
+			l := (x2 - x1 + 1) * 3
+			for i := 0; i < l; i++ {
+				screen[from+i] = color
+			}
+			//C.memset(unsafe.Pointer(&(screen[(x1+yTable[y1])*3])), C.int(color), C.ulong((x2-x1+1)*3))
 			return
 		}
-		C.memset(unsafe.Pointer(&(screen[(x2+yTable[y1])*3])), C.int(color), C.ulong((x1-x2+1)*3))
+		from := (x2 + yTable[y1]) * 3
+		l := (x1 - x2 + 1) * 3
+		for i := 0; i < l; i++ {
+			screen[from+i] = color
+		}
+		// C.memset(unsafe.Pointer(&(screen[(x2+yTable[y1])*3])), C.int(color), C.ulong((x1-x2+1)*3))
 		return
 	}
 	x := x1
