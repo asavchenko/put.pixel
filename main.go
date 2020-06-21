@@ -1,50 +1,40 @@
 package main
 
 import (
+	"fmt"
 	"runtime"
 	"time"
 
-	"assa.com/put.pixel/lib/mlib"
 	"assa.com/put.pixel/lib/ogl"
-	"assa.com/put.pixel/src/snow"
-	"assa.com/put.pixel/src/wind"
+	"assa.com/put.pixel/src/characters"
 )
 
-const numFlakes = 2000
+const numChrs = 2000
 
-var snowFlakes []*snow.Flake
+var chrs []*characters.Chr
 
 func init() {
+	fmt.Println("init")
 	runtime.LockOSThread()
-	wind.SetDirection(5)
-	snowFlakes = make([]*snow.Flake, numFlakes)
+	chrs = make([]*characters.Chr, numChrs)
 }
 
 func main() {
 	ogl.Init()
 	defer ogl.Close()
-	for i := 0; i < numFlakes; i++ {
-		snowFlakes[i] = snow.GetNew()
+	for i := 0; i < numChrs; i++ {
+		chrs[i] = characters.GetNew()
 	}
-	go func() {
-		for {
-			if mlib.Rand(150) > 25 {
-				wind.SetDirection(mlib.Srand(5))
-			}
-			time.Sleep(1 * time.Second)
-		}
-	}()
 	for {
 		if ogl.IsExit() {
 			break
 		}
 
 		ogl.Draw(func() {
-			for i := 0; i < numFlakes; i++ {
-				snowFlakes[i].Move()
+			for i := 0; i < numChrs; i++ {
+				chrs[i].Move()
 			}
 		})
-		ogl.SwapBuffers()
-		time.Sleep(16 * time.Millisecond)
+		time.Sleep(17 * time.Millisecond)
 	}
 }

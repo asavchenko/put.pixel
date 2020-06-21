@@ -9,7 +9,7 @@ import (
 	"unsafe"
 
 	"github.com/go-gl/gl/v2.1/gl"
-	"github.com/go-gl/glfw/v3.2/glfw"
+	"github.com/go-gl/glfw/v3.3/glfw"
 )
 
 const (
@@ -17,15 +17,12 @@ const (
 	height = 480
 )
 
-var pixelArr1 []byte
-var pixelArr2 []byte
+var pixelArr []byte
 var window *glfw.Window
-var buffers [2]uint32
-var index int
+var buffer uint32
 
 func init() {
-	pixelArr1 = make([]byte, width*height*3)
-	pixelArr2 = make([]byte, width*height*3)
+	pixelArr = make([]byte, width*height*4)
 }
 
 func Init() {
@@ -50,39 +47,27 @@ func Init() {
 	version := gl.GoStr(gl.GetString(gl.VERSION))
 	fmt.Println("OpenGL version", version)
 
-	gl.GenBuffers(2, &buffers[0])
-
-	gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, buffers[0])
-	gl.BufferData(gl.PIXEL_UNPACK_BUFFER, width*height*3, gl.Ptr(pixelArr1), gl.DYNAMIC_DRAW)
-
-	gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, buffers[1])
-	gl.BufferData(gl.PIXEL_UNPACK_BUFFER, width*height*3, gl.Ptr(pixelArr2), gl.DYNAMIC_DRAW)
+	gl.GenBuffers(1, &buffer)
+	gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, buffer)
+	gl.BufferData(gl.PIXEL_UNPACK_BUFFER, width*height*4, nil, gl.DYNAMIC_DRAW)
 }
 
 func Close() {
 	glfw.Terminate()
 }
 
-func PutPixel(x, y int, color byte) {
-	i := (x + y*width) * 3
-	if i < 0 {
+func PutPixel(x, y int, color byte, alpha byte) {
+	index := (x + y*width) * 4
+	if index < 0 {
 		return
 	}
-	if index == 0 {
-		if i+2 > len(pixelArr1)-1 {
-			return
-		}
-		pixelArr1[i] = color
-		pixelArr1[i+1] = color
-		pixelArr1[i+2] = color
+	if index+2 > len(pixelArr)-1 {
 		return
 	}
-	if i+2 > len(pixelArr2)-1 {
-		return
-	}
-	pixelArr2[i] = color
-	pixelArr2[i+1] = color
-	pixelArr2[i+2] = color
+	pixelArr[index] = color
+	pixelArr[index+1] = color
+	pixelArr[index+2] = color
+	pixelArr[index+3] = alpha
 }
 
 func GetWindowWidth() int {
@@ -98,46 +83,29 @@ func IsExit() bool {
 }
 func Draw(run func()) {
 	if !window.ShouldClose() {
-		draw(window, run)
+		draw(buffer, window, run)
 	}
 }
 
-func draw(window *glfw.Window, run func()) {
-	showPrevScreen(window)
-	ClearScreen()
-	run()
-	glfw.PollEvents()
-}
-
-func showPrevScreen(window *glfw.Window) {
-	if index == 0 {
-		gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, buffers[1])
-	} else {
-		gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, buffers[0])
+func draw(buffer uint32, window *glfw.Window, run func()) {
+	pboPtr := gl.MapBuffer(gl.PIXEL_UNPACK_BUFFER, gl.WRITE_ONLY)
+	if pboPtr == nil {
+		return
 	}
-	gl.DrawPixels(width, height, gl.RGB, gl.UNSIGNED_BYTE, nil)
-	gl.Flush()
-	window.SwapBuffers()
-}
-
-func SwapBuffers() {
-	index++
-	if index > 1 {
-		index = 0
-	}
-	gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, buffers[index])
-	if index == 0 {
-		gl.BufferData(gl.PIXEL_UNPACK_BUFFER, width*height*3, gl.Ptr(pixelArr1), gl.DYNAMIC_DRAW)
-	} else {
-		gl.BufferData(gl.PIXEL_UNPACK_BUFFER, width*height*3, gl.Ptr(pixelArr2), gl.DYNAMIC_DRAW)
-	}
-}
-
-func ClearScreen() {
-	if index == 0 {
-		C.memset(unsafe.Pointer(&pixelArr1[0]), 0, width*height*3)
+	if !gl.UnmapBuffer(gl.PIXEL_UNPACK_BUFFER) {
 		return
 	}
 
-	C.memset(unsafe.Pointer(&pixelArr2[0]), 0, width*height*3)
+	pixelArr = (*[width * height * 4]byte)(pboPtr)[:width*height*4]
+	ClearScreen()
+	run()
+	gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, buffer)
+	gl.DrawPixels(width, height, gl.RGBA, gl.UNSIGNED_BYTE, nil)
+	gl.Flush()
+	window.SwapBuffers()
+	glfw.PollEvents()
+}
+
+func ClearScreen() {
+	C.memset(unsafe.Pointer(&pixelArr[0]), 0, width*height*4)
 }
