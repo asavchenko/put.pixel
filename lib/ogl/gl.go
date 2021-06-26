@@ -5,27 +5,35 @@ import "C"
 
 import (
 	"fmt"
-	"log"
-	"unsafe"
-
 	"github.com/go-gl/gl/v2.1/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
+	"log"
 )
 
 const (
 	width  = 640
 	height = 480
+	Xm     = width - 1
+	Ym     = height - 1
 )
 
 var pixelArr []byte
 var window *glfw.Window
 var buffer uint32
+var lastX, lastY int
+var lastWidth, lastHeight int
+var keyCallbacks map[string]map[glfw.Key][]func()
+var keyCombinationCallbacks map[string]map[string]interface{}
+var pressedKeys []glfw.Key
 
 func init() {
+	keyCallbacks = make(map[string]map[glfw.Key][]func(), 0)
+	keyCombinationCallbacks = make(map[string]map[string]interface{}, 0)
+	pressedKeys = make([]glfw.Key, 0)
 	pixelArr = make([]byte, width*height*4)
 }
 
-func Init() {
+func Init(fullScreen bool) {
 	if err := glfw.Init(); err != nil {
 		log.Fatal("failed to initialize glfw:", err)
 	}
@@ -40,7 +48,9 @@ func Init() {
 		}
 	}
 	window.MakeContextCurrent()
-
+	if fullScreen {
+		GoFullScreen()
+	}
 	if err := gl.Init(); err != nil {
 		log.Fatal("failed to initialize gl bindings:", err)
 	}
@@ -50,6 +60,9 @@ func Init() {
 	gl.GenBuffers(1, &buffer)
 	gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, buffer)
 	gl.BufferData(gl.PIXEL_UNPACK_BUFFER, width*height*4, nil, gl.DYNAMIC_DRAW)
+	lastX, lastY = window.GetPos()
+	lastWidth, lastHeight = window.GetSize()
+	window.SetKeyCallback(onKeyPress)
 }
 
 func Close() {
@@ -104,8 +117,13 @@ func draw(buffer uint32, window *glfw.Window, run func()) {
 	gl.Flush()
 	window.SwapBuffers()
 	glfw.PollEvents()
+	processInput(window)
 }
 
 func ClearScreen() {
-	C.memset(unsafe.Pointer(&pixelArr[0]), 0, width*height*4)
+	l := width * height * 3
+	for i := 0; i < l; i++ {
+		pixelArr[i] = 0
+	}
+	//C.memset(unsafe.Pointer(&pixelArr[0]), 0, width*height*4)
 }

@@ -407,7 +407,7 @@ function ShowTtfFile(arrayBuffer) {
     var width = font.xMax - font.xMin;
     var height = font.yMax - font.yMin;
     var scale = 64 / font.unitsPerEm;
-    scale /= 2
+    scale *= 5
 
     var container = document.getElementById("font-container");
 
