@@ -8,14 +8,13 @@ import (
 
 type Flake struct {
 	Type    int
-	X       int
-	Y       int
-	Speed   int
-	Dir     int
-	WindDir int
-	Color   byte
+	x       int
+	y       int
+	speed   int
+	dir     int
+	windDir int
+	color   byte
 	shape   [][]int
-	frame   int
 	wH      int
 	wW      int
 }
@@ -25,78 +24,70 @@ func GetNew() *Flake {
 	s.wH = ogl.GetWindowHeight()
 	s.wW = ogl.GetWindowWidth()
 	s.reset()
-	s.WindDir = wind.GetDirection()
+	s.windDir = wind.GetDirection()
 	wind.Subscribe(func(windDir int) {
-		s.WindDir = windDir
+		if mlib.Rand(50) == 25 {
+			s.windDir = windDir
+		}
 	})
 	return s
 }
 
 func (s *Flake) reset() {
-	s.X = mlib.Rand(s.wW)
-	s.Y = s.wH + mlib.Rand(500)
+	s.x = mlib.Srand(s.wW)
+	s.y = s.wH + mlib.Rand(500)
 	s.Type = mlib.Rand(5)
 	s.initType()
-	s.Speed = mlib.Rand(5)
-	s.Dir = mlib.Srand(s.WindDir)
-	s.Color = byte(mlib.Rand(255))
+	s.speed = mlib.Rand(5)
+	if s.windDir >= 0 {
+		s.dir = 1
+	} else {
+		s.dir = 1
+	}
+	s.color = byte(mlib.Rand(255))
 }
 
 func (s *Flake) Move() {
 	s.hide()
-	if s.frame%s.Speed == 0 {
-		s.fallLogic()
+	if s.color > 0 {
+		if mlib.Rand(5) >= 3 {
+			s.color = s.color - 1
+		}
+	} else {
+		s.y = s.wH + mlib.Rand(500)
+		s.color = byte(mlib.Rand(256))
 	}
-	if s.frame%s.Dir == 0 {
-		s.blowLogic()
+
+	if s.dir > 0 {
+		s.dir -= 1
+	}
+	if s.dir < 0 {
+		s.dir += 1
+	}
+	if s.dir == 0 {
+		if s.windDir >= 0 {
+			s.dir = s.windDir + mlib.Rand(1+s.windDir)
+		} else {
+			s.dir = s.windDir + mlib.Rand(1-s.windDir)
+		}
+	}
+	s.x += mlib.Sign(float64(s.dir))
+	if s.x > s.wW {
+		s.x = -mlib.Rand(200)
+	}
+	if s.x < 0 {
+		s.x = mlib.Rand(200)
+	}
+
+	if s.y > 0 {
+		s.y -= s.speed
+	} else {
+		s.color = byte(mlib.Rand(256))
+		s.x = mlib.Rand(s.wW)
+		s.y = s.wH + 100 + mlib.Rand(400)
+		s.speed = mlib.Rand(5)
 	}
 	s.show()
-	s.frame++
-}
-
-func (s *Flake) colorLogic() {
-	if s.Color < 0 {
-		s.Y = s.wH + mlib.Rand(50)
-		s.Color = byte(mlib.Rand(255))
-		return
-	}
-
-	if mlib.Rand(5) == 2 {
-		s.Color--
-	}
-}
-
-func (s *Flake) directionLogic() {
-	if s.Dir > 0 && mlib.Rand(150) == 2 {
-		s.Dir--
-	}
-
-	if s.Dir < 0 && mlib.Rand(150) == 2 {
-		s.Dir++
-	}
-
-	if s.Dir != 0 {
-		return
-	}
-
-	windDir := s.WindDir
-	if windDir > 0 {
-		s.Dir = windDir + mlib.Rand(windDir)
-	} else {
-		s.Dir = windDir - mlib.Rand(1-windDir)
-	}
-}
-
-func (s *Flake) fallLogic() {
-	if s.Y-1 > 0 {
-		s.Y--
-		return
-	}
-	s.reset()
-}
-
-func (s *Flake) blowLogic() {
-	s.X += mlib.Sign(float64(s.Dir))
 }
 
 func (s *Flake) initType() {
@@ -126,11 +117,11 @@ func (s *Flake) initType() {
 }
 
 func (s *Flake) hide() {
-	s.draw(s.shape, s.X, s.Y, s.Color/8)
+	s.draw(s.shape, s.x, s.y, 0)
 }
 
 func (s *Flake) show() {
-	s.draw(s.shape, s.X, s.Y, s.Color)
+	s.draw(s.shape, s.x, s.y, s.color)
 }
 
 func (s *Flake) draw(shape [][]int, x, y int, color byte) {

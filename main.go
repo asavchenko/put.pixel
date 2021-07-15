@@ -29,7 +29,7 @@ func main() {
 	go func() {
 		for {
 			if mlib.Rand(150) > 25 {
-				wind.SetDirection(mlib.Srand(5))
+				wind.SetDirection(mlib.Srand(25))
 			}
 			time.Sleep(1 * time.Second)
 		}

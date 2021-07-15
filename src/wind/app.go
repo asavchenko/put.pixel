@@ -10,6 +10,7 @@ var dir int
 var callbacks []func(val int)
 
 func init() {
+	ticker := time.NewTicker(1 * time.Second)
 	ctrlCh = make(chan map[string]interface{}, 4096)
 	callbacks = make([]func(val int), 0)
 	go func() {
@@ -27,6 +28,17 @@ func init() {
 					}
 				case "subscribe":
 					callbacks = append(callbacks, req["callback"].(func(val int)))
+				}
+			case <-ticker.C:
+				if dir > 0 {
+					dir--
+				} else if dir < 0 {
+					dir++
+				} else {
+					break
+				}
+				for _, callback := range callbacks {
+					callback(dir)
 				}
 			}
 		}
