@@ -44,3 +44,11 @@ func Srand(n int) int {
 
 	return Rand(n)
 }
+
+func AbsInt(n int) int {
+	return Sign(float64(n)) * n
+}
+
+func SignInt(n int) int {
+	return Sign(float64(n))
+}

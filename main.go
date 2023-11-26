@@ -9,22 +9,33 @@ import (
 	"assa.com/put.pixel/src/characters"
 )
 
-const numChrs = 2000
-
 var chrs []*characters.Chr
 
 func init() {
 	fmt.Println("init")
 	runtime.LockOSThread()
-	chrs = make([]*characters.Chr, numChrs)
+	chrs = make([]*characters.Chr, 0)
 }
 
 func main() {
-	ogl.Init()
+	ogl.Init(false)
 	defer ogl.Close()
-	for i := 0; i < numChrs; i++ {
-		chrs[i] = characters.GetNew()
+	ogl.OnKeypress(ogl.KEY_ESC, func() {
+		ogl.CloseWindow()
+	})
+	text := "It works!"
+	w := ogl.GetWindowWidth()
+	h := ogl.GetWindowHeight()
+	color := byte(200)
+	textWidth := len(text) * (characters.GetCharacterWidth() + characters.GetSpaceSizeBtwCharacters())
+	textHeight := characters.GetCharacterHeight() + characters.GetLineSpaceSize()
+	y := (h + 2*textHeight) / 2
+	x := (w - textWidth) / 2
+	for _, r := range text {
+		chrs = append(chrs, characters.GetNew(r, x, y, color))
+		x += characters.GetCharacterWidth() + characters.GetSpaceSizeBtwCharacters()
 	}
+	numChrs := len(text)
 	for {
 		if ogl.IsExit() {
 			break
@@ -32,7 +43,7 @@ func main() {
 
 		ogl.Draw(func() {
 			for i := 0; i < numChrs; i++ {
-				chrs[i].Move()
+				chrs[i].Show()
 			}
 		})
 		time.Sleep(17 * time.Millisecond)
