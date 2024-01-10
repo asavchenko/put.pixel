@@ -27,13 +27,14 @@ func main() {
 	w := ogl.GetWindowWidth()
 	h := ogl.GetWindowHeight()
 	color := byte(200)
-	textWidth := len(text) * (characters.GetCharacterWidth() + characters.GetSpaceSizeBtwCharacters())
-	textHeight := characters.GetCharacterHeight() + characters.GetLineSpaceSize()
+	fontSize := 60
+	textWidth := len(text) * (characters.GetCharacterWidth(fontSize) + characters.GetSpaceSizeBtwCharacters(fontSize))
+	textHeight := characters.GetCharacterHeight(fontSize) + characters.GetLineSpaceSize(fontSize)
 	y := (h + 2*textHeight) / 2
 	x := (w - textWidth) / 2
 	for _, r := range text {
-		chrs = append(chrs, characters.GetNew(r, x, y, color))
-		x += characters.GetCharacterWidth() + characters.GetSpaceSizeBtwCharacters()
+		chrs = append(chrs, characters.GetNew(r, x, y, color).SetCharacterSize(fontSize))
+		x += characters.GetCharacterWidth(fontSize) + characters.GetSpaceSizeBtwCharacters(fontSize)
 	}
 	numChrs := len(text)
 	for {

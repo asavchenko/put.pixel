@@ -1,11 +1,17 @@
 package characters
 
 import (
+	"fmt"
+	"math"
+
 	"assa.com/put.pixel/lib/ogl"
 	"assa.com/put.pixel/src/characters/lang/eng"
+	"assa.com/put.pixel/src/characters/utf8"
 )
 
 type Chr struct {
+	Ch     rune
+	Size   int
 	X      int
 	Y      int
 	Color  byte
@@ -16,66 +22,80 @@ type Chr struct {
 	height int
 }
 
-var characterSize = 14
-
-func GetCharacterSize() int {
-	return characterSize
+func (ch *Chr) GetCharacterSize() int {
+	return ch.Size
 }
 
-func SetCharacterSize(size int) {
-	characterSize = size
+func (ch *Chr) SetCharacterSize(size int) *Chr {
+	// we need to apply scaling
+	// for now we are going to implement only sizes >= 14
+	switch size {
+	case 14:
+		//
+		ch.shape = utf8.GetShape(ch.Ch)
+	default:
+		if size < 14 {
+			ch.shape = utf8.GetShape(ch.Ch) // downscaling is not yet implemented
+			break
+		}
+		// magic 09.01.2024 we will use nearest neighbour
+		ch.Scale(size)
+	}
+	ch.Size = size
+
+	return ch
 }
 
-func GetCharacterWidth() int {
-	switch characterSize {
+func (ch *Chr) GetCharacterWidth() int {
+	switch ch.Size {
 	case 14:
 		return 17
 	default:
-		if characterSize > 14 {
-			return 17 + characterSize - 14
+		if ch.Size > 14 {
+			return 17 + ch.Size - 14
 		}
-		if characterSize < 0 {
+		if ch.Size < 0 {
 			return 3
 		}
-		return 17 - (14 - characterSize)
+		return 17 - (14 - ch.Size)
 	}
 }
 
-func GetCharacterHeight() int {
-	switch characterSize {
+func (ch *Chr) GetCharacterHeight() int {
+	switch ch.Size {
 	case 14:
 		return 20
 	default:
-		if characterSize > 14 {
-			return 20 + characterSize - 14
+		if ch.Size > 14 {
+			return 20 + ch.Size - 14
 		}
-		if characterSize < 0 {
+		if ch.Size < 0 {
 			return 5
 		}
-		return 20 - (14 - characterSize)
+		return 20 - (14 - ch.Size)
 	}
 }
 
-func GetSpaceSizeBtwCharacters() int {
-	return 0
-	return GetCharacterWidth() / 9
+func (ch *Chr) GetSpaceSizeBtwCharacters() int {
+	return ch.GetCharacterWidth() / 9
 }
 
-func GetLineSpaceSize() int {
-	return 0
-	return GetCharacterWidth() / 6
+func (ch *Chr) GetLineSpaceSize() int {
+	return ch.GetCharacterWidth() / 6
 }
 
 func GetNew(chRune rune, x, y int, color byte) *Chr {
 	ch := &Chr{}
+	ch.Ch = chRune
 	ch.wH = ogl.GetWindowHeight()
 	ch.wW = ogl.GetWindowWidth()
-	ch.shape = eng.GetShape(chRune)
+	ch.shape = utf8.GetShape(chRune)
 	ch.X = x
 	ch.Y = y
 	ch.Color = color
-	ch.width = GetCharacterWidth()
-	ch.height = GetCharacterHeight()
+	ch.Size = 14
+	ch.width = ch.GetCharacterWidth()
+	ch.height = ch.GetCharacterHeight()
 
 	return ch
 }
@@ -132,4 +152,34 @@ func (ch *Chr) draw(shape [][]int, x, y int, a byte) {
 			}
 		}
 	}
+}
+
+func (ch *Chr) Scale(size int) {
+	original := eng.GetShape(ch.Ch)
+	resized := make([][]int, 0)
+	ow := ch.GetCharacterWidth()
+	oh := ch.GetCharacterHeight()
+	ch.Size = size
+	nw := ch.GetCharacterWidth()
+	nh := ch.GetCharacterHeight()
+	kw := float64(nw) / float64(ow)
+	kh := float64(nh) / float64(oh)
+	resized = make([][]int, nh)
+	fmt.Println(len(resized))
+	for j := 0; j < nh; j++ {
+		resized[j] = make([]int, nw)
+		for i := 0; i < nw; i++ {
+			x := int(math.Ceil(float64(j) / kw))
+			y := int(math.Ceil(float64(i) / kh))
+			if x >= oh {
+				continue
+			}
+			if y >= ow {
+				continue
+			}
+
+			resized[j][i] = original[x][y]
+		}
+	}
+	ch.shape = resized
 }
