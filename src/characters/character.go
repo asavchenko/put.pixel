@@ -34,10 +34,10 @@ func (ch *Chr) SetCharacterSize(size int) *Chr {
 		//
 		ch.shape = utf8.GetShape(ch.Ch)
 	default:
-		if size < 14 {
-			ch.shape = utf8.GetShape(ch.Ch) // downscaling is not yet implemented
-			break
-		}
+		//if size < 14 {
+		//	ch.shape = utf8.GetShape(ch.Ch) // downscaling is not yet implemented
+		//	break
+		//}
 		// magic 09.01.2024 we will use nearest neighbour
 		ch.Scale(size)
 	}
@@ -165,20 +165,45 @@ func (ch *Chr) Scale(size int) {
 	kw := float64(nw) / float64(ow)
 	kh := float64(nh) / float64(oh)
 	resized = make([][]int, nh)
-	fmt.Println(len(resized))
-	for j := 0; j < nh; j++ {
-		resized[j] = make([]int, nw)
-		for i := 0; i < nw; i++ {
-			x := int(math.Ceil(float64(j) / kw))
-			y := int(math.Ceil(float64(i) / kh))
-			if x >= oh {
+	if kw > 1 && kh > 1 {
+		for j := 0; j < nh; j++ {
+			resized[j] = make([]int, nw)
+			for i := 0; i < nw; i++ {
+				y := int(math.Ceil(float64(j) / kh))
+				x := int(math.Ceil(float64(i) / kw))
+				if x >= ow {
+					x = ow - 1
+				}
+				if y >= oh {
+					y = oh - 1
+				}
+
+				fmt.Println("i:", i, "j:", j, "ow:", ow, "oh:", oh, "nw:", nw, "nh:", nh, "kw:", kw, "kh:", kh, "x:", x, "y:", y)
+				resized[j][i] = original[y][x]
+			}
+		}
+		ch.shape = resized
+		return
+	}
+	for i := 0; i < nh; i++ {
+		resized[i] = make([]int, nw)
+	}
+	for j := 0; j < oh; j++ {
+		for i := 0; i < ow; i++ {
+			if original[j][i] < 1 {
 				continue
 			}
-			if y >= ow {
-				continue
+			y := int(math.Ceil(float64(j) * kh))
+			x := int(math.Ceil(float64(i) * kw))
+			if y >= nh {
+				y = nh - 1
+			}
+			if x >= nw {
+				x = nw - 1
 			}
 
-			resized[j][i] = original[x][y]
+			fmt.Println("i:", i, "j:", j, "ow:", ow, "oh:", oh, "nw:", nw, "nh:", nh, "kw:", kw, "kh:", kh, "x:", x, "y:", y)
+			resized[y][x] = original[j][i]
 		}
 	}
 	ch.shape = resized

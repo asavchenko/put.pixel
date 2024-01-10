@@ -27,7 +27,7 @@ func main() {
 	w := ogl.GetWindowWidth()
 	h := ogl.GetWindowHeight()
 	color := byte(200)
-	fontSize := 60
+	fontSize := 8
 	textWidth := len(text) * (characters.GetCharacterWidth(fontSize) + characters.GetSpaceSizeBtwCharacters(fontSize))
 	textHeight := characters.GetCharacterHeight(fontSize) + characters.GetLineSpaceSize(fontSize)
 	y := (h + 2*textHeight) / 2
