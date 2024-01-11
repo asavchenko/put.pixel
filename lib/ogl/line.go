@@ -636,11 +636,7 @@ func __line(x1, y1, x2, y2 int, color byte) {
 			from := (x1 + y1*width) * 4
 			l := (x2 - x1 + 1) * 3
 			for i := 0; i < l; i++ {
-				if index == 0 {
-					pixelArr1[from+i] = color
-				} else {
-					pixelArr2[from+i] = color
-				}
+				pixelArr[from+i] = color
 			}
 			//C.memset(unsafe.Pointer(&(screen[(x1+yTable[y1])*3])), C.int(color), C.ulong((x2-x1+1)*3))
 			return
@@ -649,11 +645,7 @@ func __line(x1, y1, x2, y2 int, color byte) {
 		from := (x2 + y1*width) * 4
 		l := (x1 - x2 + 1) * 3
 		for i := 0; i < l; i++ {
-			if index == 0 {
-				pixelArr1[from+i] = color
-			} else {
-				pixelArr2[from+i] = color
-			}
+			pixelArr[from+i] = color
 		}
 		// C.memset(unsafe.Pointer(&(screen[(x2+yTable[y1])*3])), C.int(color), C.ulong((x1-x2+1)*3))
 		return
