@@ -1,7 +1,6 @@
 package characters
 
 import (
-	"fmt"
 	"math"
 
 	"assa.com/put.pixel/lib/ogl"
@@ -14,6 +13,8 @@ type Chr struct {
 	Size   int
 	X      int
 	Y      int
+	PX     int
+	PY     int
 	Color  byte
 	shape  [][]int
 	wH     int
@@ -27,18 +28,10 @@ func (ch *Chr) GetCharacterSize() int {
 }
 
 func (ch *Chr) SetCharacterSize(size int) *Chr {
-	// we need to apply scaling
-	// for now we are going to implement only sizes >= 14
 	switch size {
 	case 14:
-		//
 		ch.shape = utf8.GetShape(ch.Ch)
 	default:
-		//if size < 14 {
-		//	ch.shape = utf8.GetShape(ch.Ch) // downscaling is not yet implemented
-		//	break
-		//}
-		// magic 09.01.2024 we will use nearest neighbour
 		ch.Scale(size)
 	}
 	ch.Size = size
@@ -92,6 +85,8 @@ func GetNew(chRune rune, x, y int, color byte) *Chr {
 	ch.shape = utf8.GetShape(chRune)
 	ch.X = x
 	ch.Y = y
+	ch.PX = x
+	ch.PY = y
 	ch.Color = color
 	ch.Size = 14
 	ch.width = ch.GetCharacterWidth()
@@ -130,13 +125,26 @@ func (ch *Chr) IsVisible() bool {
 
 func (ch *Chr) Move(dx, dy int) {
 	ch.Hide()
+	ch.PX = ch.X
+	ch.PY = ch.Y
 	ch.X += dx
 	ch.Y += dy
 	ch.Show()
 }
 
 func (ch *Chr) Hide() {
-	ch.draw(ch.shape, ch.X, ch.Y, 0)
+	var color = ch.Color
+	ch.Color = 0
+	ch.draw(ch.shape, ch.PX, ch.PY, 0)
+	ch.Color = color
+}
+
+func abs(i int) int {
+	if i >= 0 {
+		return i
+	}
+
+	return -i
 }
 
 func (ch *Chr) Show() {
@@ -178,7 +186,6 @@ func (ch *Chr) Scale(size int) {
 					y = oh - 1
 				}
 
-				fmt.Println("i:", i, "j:", j, "ow:", ow, "oh:", oh, "nw:", nw, "nh:", nh, "kw:", kw, "kh:", kh, "x:", x, "y:", y)
 				resized[j][i] = original[y][x]
 			}
 		}
@@ -202,7 +209,6 @@ func (ch *Chr) Scale(size int) {
 				x = nw - 1
 			}
 
-			fmt.Println("i:", i, "j:", j, "ow:", ow, "oh:", oh, "nw:", nw, "nh:", nh, "kw:", kw, "kh:", kh, "x:", x, "y:", y)
 			resized[y][x] = original[j][i]
 		}
 	}

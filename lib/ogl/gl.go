@@ -58,6 +58,7 @@ func Init(fullScreen bool) {
 	fmt.Println("OpenGL version", version)
 
 	gl.GenBuffers(1, &buffer)
+	glfw.SwapInterval(1)
 	gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, buffer)
 	gl.BufferData(gl.PIXEL_UNPACK_BUFFER, width*height*4, nil, gl.DYNAMIC_DRAW)
 	lastX, lastY = window.GetPos()
@@ -117,7 +118,7 @@ func draw(buffer uint32, window *glfw.Window, run func()) {
 	}
 
 	pixelArr = (*[width * height * 4]byte)(pboPtr)[:width*height*4]
-	ClearScreen()
+	//ClearScreen()
 	run()
 	gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, buffer)
 	gl.DrawPixels(width, height, gl.RGBA, gl.UNSIGNED_BYTE, nil)
@@ -128,8 +129,7 @@ func draw(buffer uint32, window *glfw.Window, run func()) {
 }
 
 func ClearScreen() {
-	l := width * height * 3
-	for i := 0; i < l; i++ {
+	for i := range pixelArr {
 		pixelArr[i] = 0
 	}
 	//C.memset(unsafe.Pointer(&pixelArr[0]), 0, width*height*4)

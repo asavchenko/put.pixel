@@ -27,7 +27,7 @@ func main() {
 	w := ogl.GetWindowWidth()
 	h := ogl.GetWindowHeight()
 	color := byte(200)
-	fontSize := 8
+	fontSize := 18
 	textWidth := len(text) * (characters.GetCharacterWidth(fontSize) + characters.GetSpaceSizeBtwCharacters(fontSize))
 	textHeight := characters.GetCharacterHeight(fontSize) + characters.GetLineSpaceSize(fontSize)
 	y := (h + 2*textHeight) / 2
@@ -44,9 +44,12 @@ func main() {
 
 		ogl.Draw(func() {
 			for i := 0; i < numChrs; i++ {
-				chrs[i].Show()
+				chrs[i].Move(0, -1)
+				if int(chrs[i].Y) < 0 {
+					chrs[i].Y = ogl.GetWindowHeight() + chrs[i].GetHeight()
+				}
 			}
 		})
-		time.Sleep(17 * time.Millisecond)
+		time.Sleep(1 * time.Millisecond)
 	}
 }
