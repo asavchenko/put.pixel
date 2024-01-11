@@ -61,6 +61,7 @@ func Init(fullScreen bool) {
 	fmt.Println("OpenGL version", version)
 
 	gl.GenBuffers(2, &buffers[0])
+	glfw.SwapInterval(1)
 
 	gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, buffers[0])
 	gl.BufferData(gl.PIXEL_UNPACK_BUFFER, width*height*4, gl.Ptr(pixelArr1), gl.DYNAMIC_DRAW)

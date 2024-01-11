@@ -5,6 +5,7 @@ import (
 	"assa.com/put.pixel/src/characters"
 	"fmt"
 	"runtime"
+	"time"
 )
 
 var chrs []*characters.Chr
@@ -25,7 +26,7 @@ func main() {
 	w := ogl.GetWindowWidth()
 	h := ogl.GetWindowHeight()
 	color := byte(200)
-	fontSize := 27
+	fontSize := 14
 	textWidth := len(text) * (characters.GetCharacterWidth(fontSize) + characters.GetSpaceSizeBtwCharacters(fontSize))
 	textHeight := characters.GetCharacterHeight(fontSize) + characters.GetLineSpaceSize(fontSize)
 	y := (h + 2*textHeight) / 2
@@ -48,5 +49,6 @@ func main() {
 				}
 			}
 		})
+		time.Sleep(1 * time.Millisecond)
 	}
 }

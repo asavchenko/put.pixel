@@ -28,18 +28,10 @@ func (ch *Chr) GetCharacterSize() int {
 }
 
 func (ch *Chr) SetCharacterSize(size int) *Chr {
-	// we need to apply scaling
-	// for now we are going to implement only sizes >= 14
 	switch size {
 	case 14:
-		//
 		ch.shape = utf8.GetShape(ch.Ch)
 	default:
-		//if size < 14 {
-		//	ch.shape = utf8.GetShape(ch.Ch) // downscaling is not yet implemented
-		//	break
-		//}
-		// magic 09.01.2024 we will use nearest neighbour
 		ch.Scale(size)
 	}
 	ch.Size = size
