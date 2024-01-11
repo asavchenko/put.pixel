@@ -128,13 +128,10 @@ func Draw(run func()) {
 func draw(window *glfw.Window, run func()) {
 	run()
 	gl.DrawPixels(width, height, gl.RGBA, gl.UNSIGNED_BYTE, nil)
-	gl.Flush()
-	window.SwapBuffers()
-
 	glfw.PollEvents()
 	processInput(window)
 	SwapBuffers()
-	//ClearScreen()
+	ClearScreen()
 }
 
 func SwapBuffers() {
@@ -148,6 +145,7 @@ func SwapBuffers() {
 	} else {
 		gl.BufferData(gl.PIXEL_UNPACK_BUFFER, width*height*4, gl.Ptr(pixelArr2), gl.DYNAMIC_DRAW)
 	}
+	window.SwapBuffers()
 }
 
 func ClearScreen() {

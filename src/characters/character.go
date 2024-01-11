@@ -104,19 +104,19 @@ func (ch *Chr) GetHeight() int {
 }
 
 func (ch *Chr) IsVisible() bool {
-	if ch.X < 0 && int(ch.X)+ch.width < 0 {
+	if ch.X < 0 && ch.X+ch.width < 0 {
 		return false
 	}
 
-	if ch.Y > 0 && int(ch.Y)+ch.height < 0 {
+	if ch.Y > 0 && ch.Y+ch.height < 0 {
 		return false
 	}
 
-	if int(ch.X) > ch.wW && int(ch.X)+ch.width > ch.wW {
+	if ch.X > ch.wW && ch.X+ch.width > ch.wW {
 		return false
 	}
 
-	if int(ch.Y) > ch.wH && int(ch.Y)+ch.height > ch.wH {
+	if ch.Y > ch.wH && ch.Y+ch.height > ch.wH {
 		return false
 	}
 
@@ -125,8 +125,8 @@ func (ch *Chr) IsVisible() bool {
 
 func (ch *Chr) Move(dx, dy int) {
 	ch.Hide()
-	ch.PX = int(ch.X)
-	ch.PY = int(ch.Y)
+	ch.PX = ch.X
+	ch.PY = ch.Y
 	ch.X += dx
 	ch.Y += dy
 
@@ -134,10 +134,10 @@ func (ch *Chr) Move(dx, dy int) {
 }
 
 func (ch *Chr) Hide() {
-	var color = ch.Color
-	ch.Color = 0
-	ch.draw(ch.shape, ch.PX, ch.PY, 0)
-	ch.Color = color
+	//var color = ch.Color
+	//ch.Color = 0
+	//ch.draw(ch.shape, ch.PX, ch.PY, 0)
+	//ch.Color = color
 }
 
 func abs(i int) int {

@@ -5,7 +5,6 @@ import (
 	"assa.com/put.pixel/src/characters"
 	"fmt"
 	"runtime"
-	"time"
 )
 
 var chrs []*characters.Chr
@@ -49,6 +48,5 @@ func main() {
 				}
 			}
 		})
-		time.Sleep(1 * time.Millisecond)
 	}
 }
