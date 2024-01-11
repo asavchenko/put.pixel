@@ -17,9 +17,11 @@ const (
 	Ym     = height - 1
 )
 
-var pixelArr []byte
+var pixelArr1 []byte
+var pixelArr2 []byte
 var window *glfw.Window
-var buffer uint32
+var buffers [2]uint32
+var index int
 var lastX, lastY int
 var lastWidth, lastHeight int
 var keyCallbacks map[string]map[glfw.Key][]func()
@@ -30,7 +32,8 @@ func init() {
 	keyCallbacks = make(map[string]map[glfw.Key][]func(), 0)
 	keyCombinationCallbacks = make(map[string]map[string]interface{}, 0)
 	pressedKeys = make([]glfw.Key, 0)
-	pixelArr = make([]byte, width*height*4)
+	pixelArr1 = make([]byte, width*height*4)
+	pixelArr2 = make([]byte, width*height*4)
 }
 
 func Init(fullScreen bool) {
@@ -57,9 +60,13 @@ func Init(fullScreen bool) {
 	version := gl.GoStr(gl.GetString(gl.VERSION))
 	fmt.Println("OpenGL version", version)
 
-	gl.GenBuffers(1, &buffer)
-	gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, buffer)
-	gl.BufferData(gl.PIXEL_UNPACK_BUFFER, width*height*4, nil, gl.DYNAMIC_DRAW)
+	gl.GenBuffers(2, &buffers[0])
+
+	gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, buffers[0])
+	gl.BufferData(gl.PIXEL_UNPACK_BUFFER, width*height*4, gl.Ptr(pixelArr1), gl.DYNAMIC_DRAW)
+
+	gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, buffers[1])
+	gl.BufferData(gl.PIXEL_UNPACK_BUFFER, width*height*4, gl.Ptr(pixelArr2), gl.DYNAMIC_DRAW)
 	lastX, lastY = window.GetPos()
 	lastWidth, lastHeight = window.GetSize()
 	window.SetKeyCallback(onKeyPress)
@@ -74,17 +81,27 @@ func Close() {
 }
 
 func PutPixel(x, y int, color byte, alpha byte) {
-	index := (x + y*width) * 4
-	if index < 0 {
+	i := (x + y*width) * 4
+	if i < 0 {
 		return
 	}
-	if index+2 > len(pixelArr)-1 {
+	if index == 0 {
+		if i+2 > len(pixelArr1)-1 {
+			return
+		}
+		pixelArr1[i] = color
+		pixelArr1[i+1] = color
+		pixelArr1[i+2] = color
+		pixelArr1[i+3] = alpha
 		return
 	}
-	pixelArr[index] = color
-	pixelArr[index+1] = color
-	pixelArr[index+2] = color
-	pixelArr[index+3] = alpha
+	if i+2 > len(pixelArr2)-1 {
+		return
+	}
+	pixelArr2[i] = color
+	pixelArr2[i+1] = color
+	pixelArr2[i+2] = color
+	pixelArr2[i+3] = alpha
 }
 
 func GetWindowWidth() int {
@@ -101,36 +118,46 @@ func IsExit() bool {
 
 func Draw(run func()) {
 	if !window.ShouldClose() {
-		draw(buffer, window, run)
+		draw(window, run)
 	}
 }
 
 // CPU = draw | math (performance algorythm)
 // CPU (math) + GPU (draw) - performance
-func draw(buffer uint32, window *glfw.Window, run func()) {
-	pboPtr := gl.MapBuffer(gl.PIXEL_UNPACK_BUFFER, gl.WRITE_ONLY)
-	if pboPtr == nil {
-		return
-	}
-	if !gl.UnmapBuffer(gl.PIXEL_UNPACK_BUFFER) {
-		return
-	}
-
-	pixelArr = (*[width * height * 4]byte)(pboPtr)[:width*height*4]
-	ClearScreen()
+func draw(window *glfw.Window, run func()) {
 	run()
-	gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, buffer)
 	gl.DrawPixels(width, height, gl.RGBA, gl.UNSIGNED_BYTE, nil)
 	gl.Flush()
 	window.SwapBuffers()
+
 	glfw.PollEvents()
 	processInput(window)
+	SwapBuffers()
+	//ClearScreen()
+}
+
+func SwapBuffers() {
+	index++
+	if index > 1 {
+		index = 0
+	}
+	gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, buffers[index])
+	if index == 0 {
+		gl.BufferData(gl.PIXEL_UNPACK_BUFFER, width*height*4, gl.Ptr(pixelArr1), gl.DYNAMIC_DRAW)
+	} else {
+		gl.BufferData(gl.PIXEL_UNPACK_BUFFER, width*height*4, gl.Ptr(pixelArr2), gl.DYNAMIC_DRAW)
+	}
 }
 
 func ClearScreen() {
-	l := width * height * 3
-	for i := 0; i < l; i++ {
-		pixelArr[i] = 0
+	if index == 0 {
+		for i := range pixelArr1 {
+			pixelArr1[i] = 0
+		}
+		return
+	}
+	for i := range pixelArr2 {
+		pixelArr2[i] = 0
 	}
 	//C.memset(unsafe.Pointer(&pixelArr[0]), 0, width*height*4)
 }

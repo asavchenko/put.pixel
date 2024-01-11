@@ -1,7 +1,6 @@
 package characters
 
 import (
-	"fmt"
 	"math"
 
 	"assa.com/put.pixel/lib/ogl"
@@ -14,6 +13,8 @@ type Chr struct {
 	Size   int
 	X      int
 	Y      int
+	PX     int
+	PY     int
 	Color  byte
 	shape  [][]int
 	wH     int
@@ -92,6 +93,8 @@ func GetNew(chRune rune, x, y int, color byte) *Chr {
 	ch.shape = utf8.GetShape(chRune)
 	ch.X = x
 	ch.Y = y
+	ch.PX = x
+	ch.PY = y
 	ch.Color = color
 	ch.Size = 14
 	ch.width = ch.GetCharacterWidth()
@@ -109,19 +112,19 @@ func (ch *Chr) GetHeight() int {
 }
 
 func (ch *Chr) IsVisible() bool {
-	if ch.X < 0 && ch.X+ch.width < 0 {
+	if ch.X < 0 && int(ch.X)+ch.width < 0 {
 		return false
 	}
 
-	if ch.Y > 0 && ch.Y+ch.height < 0 {
+	if ch.Y > 0 && int(ch.Y)+ch.height < 0 {
 		return false
 	}
 
-	if ch.X > ch.wW && ch.X+ch.width > ch.wW {
+	if int(ch.X) > ch.wW && int(ch.X)+ch.width > ch.wW {
 		return false
 	}
 
-	if ch.Y > ch.wH && ch.Y+ch.height > ch.wH {
+	if int(ch.Y) > ch.wH && int(ch.Y)+ch.height > ch.wH {
 		return false
 	}
 
@@ -130,17 +133,31 @@ func (ch *Chr) IsVisible() bool {
 
 func (ch *Chr) Move(dx, dy int) {
 	ch.Hide()
+	ch.PX = int(ch.X)
+	ch.PY = int(ch.Y)
 	ch.X += dx
 	ch.Y += dy
+
 	ch.Show()
 }
 
 func (ch *Chr) Hide() {
-	ch.draw(ch.shape, ch.X, ch.Y, 0)
+	var color = ch.Color
+	ch.Color = 0
+	ch.draw(ch.shape, ch.PX, ch.PY, 0)
+	ch.Color = color
+}
+
+func abs(i int) int {
+	if i >= 0 {
+		return i
+	}
+
+	return -i
 }
 
 func (ch *Chr) Show() {
-	ch.draw(ch.shape, ch.X, ch.Y, 255)
+	ch.draw(ch.shape, int(ch.X), int(ch.Y), 255)
 }
 
 func (ch *Chr) draw(shape [][]int, x, y int, a byte) {
@@ -178,7 +195,6 @@ func (ch *Chr) Scale(size int) {
 					y = oh - 1
 				}
 
-				fmt.Println("i:", i, "j:", j, "ow:", ow, "oh:", oh, "nw:", nw, "nh:", nh, "kw:", kw, "kh:", kh, "x:", x, "y:", y)
 				resized[j][i] = original[y][x]
 			}
 		}
@@ -202,7 +218,6 @@ func (ch *Chr) Scale(size int) {
 				x = nw - 1
 			}
 
-			fmt.Println("i:", i, "j:", j, "ow:", ow, "oh:", oh, "nw:", nw, "nh:", nh, "kw:", kw, "kh:", kh, "x:", x, "y:", y)
 			resized[y][x] = original[j][i]
 		}
 	}
