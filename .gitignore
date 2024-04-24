@@ -1,0 +1,11 @@
+.vscode/*
+
+objs
+
+bin
+
+.idea
+.idea_modules
+*.iml
+*.cbp
+
