@@ -9,12 +9,6 @@ Chr Chr::setCharacterSize(int size)
 {
     switch (size)
     {
-    // case 14:
-        // for (int i = 0; i < 17; i++)
-        // {
-        //     /* code */
-        // }
-        // utf8::getShape(m_ch);
     default:
         scale(size);
     }

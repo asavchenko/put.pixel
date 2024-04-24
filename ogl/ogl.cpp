@@ -5,9 +5,7 @@
 #include <string.h>
 #include "ogl.h"
 #include <iostream>
-#include <chrono>
-#include <thread>
-using namespace std::chrono_literals;
+
 namespace ogl
 {
     static const int HEIGHT = 480;
@@ -173,12 +171,6 @@ namespace ogl
     int getWindowWidth()
     {
         return WIDTH;
-    }
-
-    void swapBuffers()
-    {
-        // glfwSwapBuffers(window);
-        glFinish();
     }
 
     void close()

@@ -2,14 +2,8 @@
 
 namespace ogl
 {
-    // typedef void (*CallbackType)();
-    // using CallbackType = void(*)();
-
-
     int getWindowHeight();
-
     int getWindowWidth();
-
     void putPixel(int x, int y, unsigned char color);
     void putPixelRGB(int x, int y, unsigned char r, unsigned char g, unsigned char b);
     bool init(bool isFullScreen);
