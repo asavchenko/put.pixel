@@ -274,7 +274,7 @@ func (ch *Chr) draw(shape [][]int, x, y int, a byte) {
 	for i = len(shape) - 1; i > 0; i-- {
 		for j = len(shape) - 1; j > 0; j-- {
 			if shape[i][j] > 0 {
-				ogl.PutPixel(x+i, y+j, ch.Color, a)
+				ogl.PutPixel(x+i, y+j, ch.Color)
 			}
 		}
 	}

@@ -4,13 +4,16 @@ import (
 	"assa.com/put.pixel/lib/ogl"
 	"assa.com/put.pixel/src/characters"
 	"fmt"
+	"os"
 	"runtime"
+	"syscall"
 )
 
 var chrs []*characters.Chr
 
 func init() {
 	fmt.Println("init")
+	syscall.Setpriority(syscall.PRIO_PROCESS, os.Getpid(), -20)
 	runtime.LockOSThread()
 	chrs = make([]*characters.Chr, 0)
 }
@@ -35,11 +38,11 @@ func main() {
 		x += characters.GetCharacterWidth(fontSize) + characters.GetSpaceSizeBtwCharacters(fontSize)
 	}
 	numChrs := len(text)
+
 	for {
 		if ogl.IsExit() {
 			break
 		}
-
 		ogl.Draw(func() {
 			for i := 0; i < numChrs; i++ {
 				chrs[i].Move(0, -1)

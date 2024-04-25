@@ -4,7 +4,6 @@ import (
 	"math"
 
 	"assa.com/put.pixel/lib/ogl"
-	"assa.com/put.pixel/src/characters/lang/eng"
 	"assa.com/put.pixel/src/characters/utf8"
 )
 
@@ -134,10 +133,10 @@ func (ch *Chr) Move(dx, dy int) {
 }
 
 func (ch *Chr) Hide() {
-	//var color = ch.Color
-	//ch.Color = 0
-	//ch.draw(ch.shape, ch.PX, ch.PY, 0)
-	//ch.Color = color
+	var color = ch.Color
+	ch.Color = 0
+	ch.draw(ch.shape, ch.PX, ch.PY, 0)
+	ch.Color = color
 }
 
 func abs(i int) int {
@@ -157,14 +156,14 @@ func (ch *Chr) draw(shape [][]int, x, y int, a byte) {
 	for i = len(shape) - 1; i > 0; i-- {
 		for j = len(shape[i]) - 1; j > 0; j-- {
 			if shape[i][j] > 0 {
-				ogl.PutPixel(x+j, y-i, ch.Color, a)
+				ogl.PutPixel(x+j, y-i, ch.Color)
 			}
 		}
 	}
 }
 
 func (ch *Chr) Scale(size int) {
-	original := eng.GetShape(ch.Ch)
+	original := utf8.GetShape(ch.Ch)
 	resized := make([][]int, 0)
 	ow := ch.GetCharacterWidth()
 	oh := ch.GetCharacterHeight()

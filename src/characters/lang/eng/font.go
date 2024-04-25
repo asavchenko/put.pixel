@@ -1,10 +1,14 @@
 package eng
 
-import "unicode"
+import (
+	"fmt"
+	"unicode"
+)
 
 func GetShape(ch rune) [][]int {
 	shape, exists := shapes[unicode.ToUpper(ch)]
 	if !exists {
+		fmt.Println(ch, "doesn't exist")
 		return make([][]int, 0)
 	}
 

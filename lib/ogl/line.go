@@ -792,5 +792,5 @@ func __line(x1, y1, x2, y2 int, color byte) {
 }
 
 func putPixel(x, y int, color byte) {
-	PutPixel(x, y, color, 0)
+	PutPixel(x, y, color)
 }
