@@ -7,8 +7,8 @@ import (
 	"assa.com/put.pixel/lib/mlib"
 )
 
-func Line(xa, ya, xb, yb int, color byte) int {
-	yb = Ym - yb
+func Line(xa, ya, xb, yb int, color ...byte) int {
+	//yb = Ym - yb
 	x1 := xa
 	y1 := ya
 
@@ -49,7 +49,7 @@ func Line(xa, ya, xb, yb int, color byte) int {
 			code += 64
 		}
 	}
-
+	//fmt.Printf("code: 0x%02X\n", code)
 	switch code {
 	case 0x98:
 	case 0x89:
@@ -93,7 +93,6 @@ func Line(xa, ya, xb, yb int, color byte) int {
 		visible++
 		y2 = ya - xa*(yb-ya)/(xb-xa)
 		x2 = 0
-
 	case 0x80:
 		visible++
 		x1 = xa - ya*(xb-xa)/(yb-ya)
@@ -102,7 +101,6 @@ func Line(xa, ya, xb, yb int, color byte) int {
 		visible++
 		x2 = xa - ya*(xb-xa)/(yb-ya)
 		y2 = 0
-
 	case 0x02:
 		visible++
 		y2 = ya + (yb-ya)*(Xm-xa)/(xb-xa)
@@ -571,13 +569,46 @@ func Line(xa, ya, xb, yb int, color byte) int {
 		visible = 0
 	}
 	if visible > 0 {
-		__line(x1, y1, x2, y2, color)
+		__line(x1, y1, x2, y2, color...)
 	}
 
 	return visible
 }
 
-func _line(x1, y1, x2, y2 int, color byte) {
+func line(x0, y0, x1, y1 int, color ...byte) {
+	dx := mlib.AbsInt(x1 - x0)
+	sx := 1
+	if x0 >= x1 {
+		sx = -1
+	}
+	dy := -mlib.AbsInt(y1 - y0)
+	sy := 1
+	if y0 >= y1 {
+		sy = -1
+	}
+	e := dx + dy
+
+	for {
+		putPixel(x0, y0, color...)
+		e2 := e << 2
+		if e2 >= dy {
+			if x0 == x1 {
+				break
+			}
+			e += dy
+			x0 += sx
+		}
+		if e2 <= dx {
+			if y0 == y1 {
+				break
+			}
+			e += dx
+			y0 += sy
+		}
+	}
+}
+
+func _line(x1, y1, x2, y2 int, color ...byte) {
 	x := x1
 	y := y1
 	dx := (mlib.AbsInt(x2 - x1)) << 1
@@ -595,7 +626,7 @@ func _line(x1, y1, x2, y2 int, color byte) {
 	e := dy - dx_
 
 	for k := 0; k < dx_; k++ {
-		putPixel(x, y, color)
+		putPixel(x, y, color...)
 		for {
 			if e < 0 {
 				break
@@ -616,36 +647,55 @@ func _line(x1, y1, x2, y2 int, color byte) {
 	}
 }
 
-func __line(x1, y1, x2, y2 int, color byte) {
+func __line(x1, y1, x2, y2 int, color ...byte) {
 	if x2 == x1 {
 		if y1 < y2 {
 			for k := y1; k < y2+1; k++ {
-				putPixel(x1, k, color)
+				putPixel(x1, k, color...)
 			}
 		} else {
 			for k := y2; k < y1+1; k++ {
-				putPixel(x1, k, color)
+				putPixel(x1, k, color...)
 			}
 		}
 		return
 	}
 
 	if y2 == y1 {
+		r := byte(0)
+		g := byte(0)
+		b := byte(0)
+		if len(color) == 1 {
+			r = color[0]
+			g = color[0]
+			b = color[0]
+		} else if len(color) == 2 {
+			r = color[0]
+			g = color[1]
+		} else if len(color) == 3 {
+			r = color[0]
+			g = color[1]
+			b = color[2]
+		}
 		if x1 < x2 {
-			//from := (x1 + yTable[y1]) * 3
-			from := (x1 + y1*width) * 4
+			//from := (x1 + yTable[y1]) * 4
+			from := (x1 + y1*width) * 3
 			l := (x2 - x1 + 1) * 3
-			for i := 0; i < l; i++ {
-				pixelArr[from+i] = color
+			for i := 0; i < l; i += 3 {
+				pixelArr[from+i] = r
+				pixelArr[from+i+1] = g
+				pixelArr[from+i+2] = b
 			}
 			//C.memset(unsafe.Pointer(&(screen[(x1+yTable[y1])*3])), C.int(color), C.ulong((x2-x1+1)*3))
 			return
 		}
-		//from := (x2 + yTable[y1]) * 3
-		from := (x2 + y1*width) * 4
+		//from := (x2 + yTable[y1]) * 4
+		from := (x2 + y1*width) * 3
 		l := (x1 - x2 + 1) * 3
-		for i := 0; i < l; i++ {
-			pixelArr[from+i] = color
+		for i := 0; i < l; i += 3 {
+			pixelArr[from+i] = r
+			pixelArr[from+i+1] = g
+			pixelArr[from+i+2] = b
 		}
 		// C.memset(unsafe.Pointer(&(screen[(x2+yTable[y1])*3])), C.int(color), C.ulong((x1-x2+1)*3))
 		return
@@ -653,16 +703,16 @@ func __line(x1, y1, x2, y2 int, color byte) {
 	x := x1
 	y := y1
 
-	dx := (mlib.AbsInt(x2 - x1)) << 1
-	dy := (mlib.AbsInt(y2 - y1)) << 1
+	dx := (mlib.AbsInt(x2 - x1)) << 1 // 190 - 165 = 25 * 2 = 50
+	dy := (mlib.AbsInt(y2 - y1)) << 1 // 345 - 311 = 34 * 2 = 68
 
 	if x2 > x1 {
 		if y2 > y1 {
-			if dy > dx {
-				dy_ := dy >> 1
-				e := dx - dy_
+			if dy > dx { // x2 > x1  y2 > y1 dy > dx
+				dy_ := dy >> 1 // 34
+				e := dx - dy_  // 50 - 34
 				for k := 0; k < dy_; k++ {
-					putPixel(x, y, color)
+					putPixel(x, y, color...)
 					for {
 						if e < 0 {
 							break
@@ -673,11 +723,11 @@ func __line(x1, y1, x2, y2 int, color byte) {
 					y++
 					e += dx
 				}
-			} else {
+			} else { // x2 > x1  y2 > y1 dy < dx
 				dx_ := dx >> 1
 				e := dy - dx_
 				for k := 0; k < dx_; k++ {
-					putPixel(x, y, color)
+					putPixel(x, y, color...)
 					for {
 						if e < 0 {
 							break
@@ -690,11 +740,11 @@ func __line(x1, y1, x2, y2 int, color byte) {
 				}
 			}
 		} else if y2 < y1 {
-			if dy > dx {
+			if dy > dx { // x2 > x1  y2 < y1 dy > dx
 				dy_ := dy >> 1
 				e := dx - dy_
 				for k := 0; k < dy_; k++ {
-					putPixel(x, y, color)
+					putPixel(x, y, color...)
 					for {
 						if e < 0 {
 							break
@@ -705,11 +755,11 @@ func __line(x1, y1, x2, y2 int, color byte) {
 					y--
 					e += dx
 				}
-			} else {
+			} else { // x2 > x1  y2 < y1 dy < dx
 				dx_ := dx >> 1
 				e := dy - dx_
 				for k := 0; k < dx_; k++ {
-					putPixel(x, y, color)
+					putPixel(x, y, color...)
 					for {
 						if e < 0 {
 							break
@@ -724,26 +774,26 @@ func __line(x1, y1, x2, y2 int, color byte) {
 		}
 	} else if x2 < x1 {
 		if y2 > y1 {
-			if dy > dx {
+			if dy > dx { // x2 < x1  y2 > y1 dy > dx
 				dy_ := dy >> 1
 				e := dx - dy_
 				for k := 0; k < dy_; k++ {
-					putPixel(x, y, color)
+					putPixel(x, y, color...)
 					for {
 						if e < 0 {
 							break
 						}
-						x++
+						x--
 						e -= dy
 					}
 					y++
 					e += dx
 				}
-			} else {
+			} else { // x2 < x1  y2 > y1 dy < dx
 				dx_ := dx >> 1
 				e := dy - dx_
 				for k := 0; k < dx_; k++ {
-					putPixel(x, y, color)
+					putPixel(x, y, color...)
 					for {
 						if e < 0 {
 							break
@@ -756,26 +806,26 @@ func __line(x1, y1, x2, y2 int, color byte) {
 				}
 			}
 		} else if y2 < y1 {
-			if dy > dx {
+			if dy > dx { // x2 < x1  y2 < y1 dy > dx
 				dy_ := dy >> 1
 				e := dx - dy_
 				for k := 0; k < dy_; k++ {
-					putPixel(x, y, color)
+					putPixel(x, y, color...)
 					for {
 						if e < 0 {
 							break
 						}
-						x++
+						x--
 						e -= dy
 					}
 					y--
 					e += dx
 				}
-			} else {
+			} else { // x2 < x1  y2 < y1 dy < dx
 				dx_ := dx >> 1
 				e := dy - dx_
 				for k := 0; k < dx_; k++ {
-					putPixel(x, y, color)
+					putPixel(x, y, color...)
 					for {
 						if e < 0 {
 							break
@@ -791,6 +841,6 @@ func __line(x1, y1, x2, y2 int, color byte) {
 	}
 }
 
-func putPixel(x, y int, color byte) {
-	PutPixel(x, y, color)
+func putPixel(x, y int, color ...byte) {
+	PutPixel(x, y, color...)
 }

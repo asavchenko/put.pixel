@@ -8,7 +8,7 @@ import (
 
 const (
 	KEY_UNKNOWN       = glfw.KeyUnknown
-	kEy_SPACE         = glfw.KeySpace
+	KEY_SPACE         = glfw.KeySpace
 	KEY_APOSTROPHE    = glfw.KeyApostrophe
 	KEY_COMMA         = glfw.KeyComma
 	KEY_MINUS         = glfw.KeyMinus

@@ -5,8 +5,10 @@ import "C"
 
 import (
 	"fmt"
+
 	"github.com/go-gl/gl/v2.1/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
+
 	"log"
 )
 
@@ -31,6 +33,7 @@ func init() {
 	keyCallbacks = make(map[string]map[glfw.Key][]func(), 0)
 	keyCombinationCallbacks = make(map[string]map[string]interface{}, 0)
 	pressedKeys = make([]glfw.Key, 0)
+	pixelArr = make([]byte, width*height*3)
 }
 
 func Init(fullScreen bool) {
@@ -63,8 +66,6 @@ func Init(fullScreen bool) {
 	gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, buffers[0])
 	gl.BufferData(gl.PIXEL_UNPACK_BUFFER, width*height*3, nil, gl.DYNAMIC_DRAW)
 
-	//gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, buffers[1])
-	//gl.BufferData(gl.PIXEL_UNPACK_BUFFER, width*height*3, nil, gl.DYNAMIC_DRAW)
 	lastX, lastY = window.GetPos()
 	lastWidth, lastHeight = window.GetSize()
 	window.SetKeyCallback(onKeyPress)
@@ -82,7 +83,7 @@ func Close() {
 	glfw.Terminate()
 }
 
-func PutPixel(x, y int, color byte) {
+func PutPixel(x, y int, color ...byte) {
 	index := (x + y*width) * 3
 	if index < 0 {
 		return
@@ -90,9 +91,37 @@ func PutPixel(x, y int, color byte) {
 	if index+2 > len(pixelArr)-1 {
 		return
 	}
-	pixelArr[index] = color
-	pixelArr[index+1] = color
-	pixelArr[index+2] = color
+	r := byte(0)
+	g := byte(0)
+	b := byte(0)
+	if len(color) == 1 {
+		r = color[0]
+		g = color[0]
+		b = color[0]
+	} else if len(color) == 2 {
+		r = color[0]
+		g = color[1]
+	} else if len(color) == 3 {
+		r = color[0]
+		g = color[1]
+		b = color[2]
+	}
+
+	pixelArr[index] = r
+	pixelArr[index+1] = g
+	pixelArr[index+2] = b
+}
+
+func GetPixel(x, y int) []byte {
+	index := (x + y*width) * 3
+	if index < 0 {
+		return []byte{}
+	}
+	if index+2 > len(pixelArr)-1 {
+		return []byte{}
+	}
+
+	return []byte{pixelArr[index], pixelArr[index+1], pixelArr[index+2]}
 }
 
 func GetWindowWidth() int {
@@ -113,24 +142,21 @@ func Draw(run func()) {
 	}
 }
 
-// CPU = draw | math (performance algorythm)
-// CPU (math) + GPU (draw) - performance
 func draw(window *glfw.Window, run func()) {
-	pboPtr := gl.MapBuffer(gl.PIXEL_UNPACK_BUFFER, gl.WRITE_ONLY)
+	pboPtr := gl.MapBuffer(gl.PIXEL_UNPACK_BUFFER, gl.WRITE_ONLY_ARB)
 	if pboPtr == nil {
 		return
 	}
-	if !gl.UnmapBuffer(gl.PIXEL_UNPACK_BUFFER) {
+	if !gl.UnmapBuffer(gl.PIXEL_UNPACK_BUFFER_ARB) {
 		return
 	}
-	pixelArr = (*[width * height * 3]byte)(pboPtr)[:width*height*3]
+	copy((*[width * height * 3]byte)(pboPtr)[:width*height*3], pixelArr)
 	run()
 
 	gl.DrawPixels(width, height, gl.RGB, gl.UNSIGNED_BYTE, nil)
 
 	glfw.PollEvents()
 	processInput(window)
-	//gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, 0)
 	SwapBuffers()
 	//ClearScreen()
 }
@@ -140,11 +166,6 @@ func GetCurrentIndex() int {
 }
 
 func SwapBuffers() {
-	//index++
-	//if index > 1 {
-	//	index = 0
-	//}
-	//gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, buffers[index])
 	window.SwapBuffers()
 }
 

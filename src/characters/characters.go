@@ -1,34 +1,36 @@
 package characters
 
+import "assa.com/put.pixel/src/characters/utf8"
+
 var chrs []*Chr
 
 func GetCharacterWidth(size int) int {
 	switch size {
 	case 14:
-		return 17
+		return utf8.GetShapeWidth()
 	default:
 		if size > 14 {
-			return 17 + size - 14
+			return utf8.GetShapeWidth() + size - 14
 		}
 		if size < 0 {
 			return 3
 		}
-		return 17 - (14 - size)
+		return utf8.GetShapeWidth() - (14 - size)
 	}
 }
 
 func GetCharacterHeight(size int) int {
 	switch size {
 	case 14:
-		return 20
+		return utf8.GetShapeHeight()
 	default:
 		if size > 14 {
-			return 20 + size - 14
+			return utf8.GetShapeHeight() + size - 14
 		}
 		if size < 0 {
 			return 5
 		}
-		return 20 - (14 - size)
+		return utf8.GetShapeHeight() - (14 - size)
 	}
 }
 

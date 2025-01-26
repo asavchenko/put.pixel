@@ -5,6 +5,26 @@ import (
 	"time"
 )
 
+type Point2DInt struct {
+	X int
+	Y int
+}
+
+type Point2DFloat32 struct {
+	X float32
+	Y float32
+}
+
+type Point2DFloat64 struct {
+	X float64
+	Y float64
+}
+
+type Point2D struct {
+	X float64
+	Y float64
+}
+
 var r1 *rand.Rand
 
 func init() {
@@ -51,4 +71,76 @@ func AbsInt(n int) int {
 
 func SignInt(n int) int {
 	return Sign(float64(n))
+}
+
+/*
+*
+
+	.A_____________________________.B
+
+	           .C
+*/
+func GetBezierCoords2(a, b Point2D, c Point2D, numberOfSteps int) []Point2D {
+	result := make([]Point2D, 0)
+	// x = a.X * (1 - t)^2 + 2 * c.X * (1 - t) * t + b.X * t^2
+	// y = a.Y * (1 - t)^2 + 2 * c.Y * (1 - t) * t + b.Y * t^2,
+	d := float64(1) / float64(numberOfSteps)
+	for i := 0; i < numberOfSteps; i++ {
+		t := float64(i) * d
+		//result = append(result, Point2D{
+		//	X: a.X*(1-t)*(1-t) + 2*c.X*(1-t)*t + b.X*t*t,
+		//	Y: a.Y*(1-t)*(1-t) + 2*c.Y*(1-t)*t + b.Y*t*t,
+		//})
+		t1 := (1 - t) * (1 - t)
+		t2 := t * t
+		t3 := 2 * (1 - t) * t
+		p := Point2D{
+			X: a.X*t1 + c.X*t3 + b.X*t2,
+			Y: a.Y*t1 + c.Y*t3 + b.Y*t2,
+		}
+		//fmt.Println(p.X, p.Y, t)
+		result = append(result, p)
+	}
+	result = append(result, b)
+
+	return result
+}
+
+/*
+*
+
+	.A_____________________________.B
+
+	           .C      .D
+*/
+func GetBezierCoords3(a, b Point2D, c, d Point2D, numberOfSteps int) []Point2D {
+	result := make([]Point2D, 0)
+	// x = a.X * (1 - t)^3 + 3 * c.X * (1 - t)^2 * t + d.X * 3 * (1-t) * t^2 + b.X * t^3
+	// y = a.Y * (1 - t)^3 + 3 * c.Y * (1 - t)^2 * t + d.Y * 3 * (1-t) * t^2 + b.Y * t^3
+	e := float64(1 / numberOfSteps)
+	for i := 0; i < numberOfSteps; i++ {
+		t := float64(i) * e
+		//result = append(result, Point2D{
+		//	X: a.X*(1-t)*(1-t)*(1-t) + 3*c.X*(1-t)*(1-t)*t + d.X*3*(1-t)*t*t + b.X*t*t*t,
+		//	Y: a.Y*(1-t)*(1-t)*(1-t) + 3*c.Y*(1-t)*(1-t)*t + d.Y*3*(1-t)*t*t + b.Y*t*t*t,
+		//})
+
+		//t1 := (1 - t) * (1 - t) * (1 - t)
+		//t2 := 3 * (1 - t) * (1 - t) * t
+		//t3 := 3 * (1 - t) * t * t
+		//t4 := t * t * t
+
+		_t := (1 - t) * (1 - t)
+		t1 := _t * (1 - t)
+		t2 := 3 * _t * t
+		__t := t * t
+		t3 := 3 * (1 - t) * __t
+		t4 := __t * t
+		result = append(result, Point2D{
+			X: a.X*t1 + c.X*t2 + d.X*t3 + b.X*t4,
+			Y: a.Y*t1 + c.Y*t2 + d.Y*t3 + b.Y*t4,
+		})
+	}
+
+	return result
 }
