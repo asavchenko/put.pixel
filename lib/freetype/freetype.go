@@ -602,7 +602,7 @@ func (f *font) GetGlyphOffsetByIndex(idx uint) uint {
 	//log(printBytes(f.loca, 2))
 	offset := uint(0)
 	if f.indexToLocFormat != 0 {
-		offset = bytesToUint([]byte{f.loca[idx], f.loca[idx+1], f.loca[idx+2], f.loca[idx+3]})
+		offset = bytesToUint([]byte{f.loca[idx], f.loca[idx+1], f.loca[idx+2], f.loca[idx+3]}) * 2
 	} else {
 		offset = bytesToUint([]byte{f.loca[idx], f.loca[idx+1]}) * 2
 	}
