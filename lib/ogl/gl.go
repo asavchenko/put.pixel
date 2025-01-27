@@ -169,10 +169,10 @@ func GetPixel(x, y int) []byte {
 	return []byte{pixelArr[index], pixelArr[index+1], pixelArr[index+2]}
 }
 
-func GetPixelUnsafe(x, y int) []byte {
+func GetPixelUnsafe(x, y int) uint32 {
 	i := lookupTable[y][x]
 
-	return []byte{pixelArr[i], pixelArr[i+1], pixelArr[i+2]}
+	return uint32(pixelArr[i]) + uint32(pixelArr[i+1]<<1) + uint32(pixelArr[i+2]<<2)
 }
 
 func GetWindowWidth() int {
@@ -194,7 +194,6 @@ func Draw(run func()) {
 }
 
 func draw(window *glfw.Window, run func()) {
-
 	pboPtr := gl.MapBuffer(gl.PIXEL_UNPACK_BUFFER, gl.WRITE_ONLY)
 	if pboPtr == nil {
 		return
@@ -210,7 +209,6 @@ func draw(window *glfw.Window, run func()) {
 	glfw.PollEvents()
 	processInput(window)
 	SwapBuffers()
-
 }
 
 func GetCurrentIndex() int {

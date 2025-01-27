@@ -1,6 +1,7 @@
 package utf8
 
 import (
+	"fmt"
 	"math"
 	"time"
 
@@ -8,9 +9,10 @@ import (
 )
 
 var font freetype.Font
-var shapes map[rune][][]byte
+var shapes map[rune][]byte
 var availableCharCodes []uint32
 var ctrlShapeCh chan map[string]interface{}
+var emptyShape = GetEmptyShape()
 
 const WIDTH = 16
 const HEIGHT = 24
@@ -20,11 +22,10 @@ func init() {
 		panic(err)
 	} else {
 		font = f
-		shapes = make(map[rune][][]byte, 0)
+		shapes = make(map[rune][]byte, 0)
 		availableCharCodes = f.GetAvailableCharCodes()
 	}
 	ctrlShapeCh = make(chan map[string]interface{}, 1024)
-	emptyShape := getEmptyShape()
 	go func() {
 		for request := range ctrlShapeCh {
 			ch := request["ch"].(rune)
@@ -63,23 +64,21 @@ func init() {
 			w := WIDTH
 			h := HEIGHT
 
-			shape = make([][]byte, 0)
+			shape = make([]byte, WIDTH*HEIGHT)
 			for y := dy; y < h; y++ {
-				line := make([]byte, 0)
 				for x := dx; x < w; x++ {
 					//_x := int(math.Round((float64(x)*float64(gd.XMax-gd.XMin) + float64(w)*float64(gd.XMin) - float64(dx)*float64(gd.XMax)) / float64(w-dx)))
 					//_y := int(math.Round((float64(y)*float64(gd.YMax-gd.YMin) + float64(h)*float64(gd.YMin) - float64(dy)*float64(gd.YMax)) / float64(h-dy)))
 					_x := int(math.Round((float64(x)*float64(font.GetMaxX()-font.GetMinY()) + float64(w)*float64(font.GetMinX()) - float64(dx)*float64(font.GetMaxX())) / float64(w-dx)))
 					_y := int(math.Round((float64(y)*float64(font.GetMaxY()-font.GetMinY()) + float64(h)*float64(font.GetMinY()) - float64(dy)*float64(font.GetMaxY())) / float64(h-dy)))
 					if gd.ContainsPoint(_x, _y) {
-						line = append(line, 1)
+						shape[y*WIDTH+x] = 1
 					} else {
-						line = append(line, 0)
+						shape[y*WIDTH+x] = 0
 					}
 				}
-				shape = append(shape, line)
 			}
-			shapes[ch] = reverseShape(shape)
+			shapes[ch] = shape
 			sendResponseWithTimeout(out, shape, 20*time.Millisecond)
 		}
 	}()
@@ -101,21 +100,12 @@ func sendResponseWithTimeout(out chan interface{}, response interface{}, timeout
 	}
 }
 
-func getEmptyShape() [][]byte {
-	shape := make([][]byte, 0)
-	for i := 0; i < HEIGHT; i++ {
-		line := make([]byte, 0)
-		for j := 0; j < WIDTH; j++ {
-			line = append(line, 0)
-		}
-		shape = append(shape, line)
-	}
-
-	return shape
+func GetEmptyShape() []byte {
+	return make([]byte, WIDTH*HEIGHT)
 }
 
-func GetShape(ch rune) [][]byte {
-	//fmt.Println(string(ch), ch)
+func GetShape(ch rune) []byte {
+	fmt.Println(string(ch), ch)
 	out := make(chan interface{}, 1)
 	select {
 	case ctrlShapeCh <- map[string]interface{}{
@@ -123,17 +113,21 @@ func GetShape(ch rune) [][]byte {
 		"out": out,
 	}:
 	case <-time.After(3 * time.Second):
-		return getEmptyShape()
+		return GetEmptyShape()
 	}
 	select {
 	case response := <-out:
-		return response.([][]byte)
+		res := response.([]byte)
+		if len(res) < 1 {
+			return GetEmptyShape()
+		}
+		return res
 	case <-time.After(3 * time.Second):
-		return getEmptyShape()
+		return GetEmptyShape()
 	}
 }
 
-func reverseShape(arr [][]byte) [][]byte {
+func reverseShape(arr []byte) []byte {
 	for i, j := 0, len(arr)-1; i < j; i, j = i+1, j-1 {
 		arr[i], arr[j] = arr[j], arr[i]
 	}
