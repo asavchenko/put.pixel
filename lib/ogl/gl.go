@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/go-gl/gl/v2.1/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
+	"unsafe"
 
 	"log"
 )
@@ -33,7 +34,6 @@ func init() {
 	keyCallbacks = make(map[string]map[glfw.Key][]func(), 0)
 	keyCombinationCallbacks = make(map[string]map[string]interface{}, 0)
 	pressedKeys = make([]glfw.Key, 0)
-	pixelArr = make([]byte, width*height*3)
 	lookupTable = make([][]int, height)
 	for i := 0; i < height; i++ {
 		line := make([]int, width)
@@ -200,7 +200,10 @@ func draw(window *glfw.Window, run func()) {
 	if !gl.UnmapBuffer(gl.PIXEL_UNPACK_BUFFER) {
 		return
 	}
-	copy((*[width * height * 3]byte)(pboPtr)[:width*height*3], pixelArr)
+	//screen := (*[width * height * 3]byte)(pboPtr)[:width*height*3]
+	pixelArr = unsafe.Slice((*byte)(pboPtr), width*height*3)
+	//pixelArr = (*[width * height * 3]byte)(pboPtr)[:width*height*3]
+
 	run()
 
 	gl.DrawPixels(width, height, gl.RGB, gl.UNSIGNED_BYTE, nil)
