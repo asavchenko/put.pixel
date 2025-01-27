@@ -12,8 +12,8 @@ var shapes map[rune][][]byte
 var availableCharCodes []uint32
 var ctrlShapeCh chan map[string]interface{}
 
-const WIDTH = 24
-const HEIGHT = 32
+const WIDTH = 16
+const HEIGHT = 24
 
 func init() {
 	if f, err := freetype.LoadFont("src/characters/utf8/LiberationMono-Regular.ttf"); err != nil {

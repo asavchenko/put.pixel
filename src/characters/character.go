@@ -160,7 +160,7 @@ func (ch *Chr) Hide() {
 			x := ch.PX + j
 			y := ch.PY - i
 			if ch.IsPixelVisible(x, y) && ch.curNotContainsOrInvisible(x, y) && len(ch.prev) > 0 && len(ch.prev[i]) > 0 && len(ch.prev[i][j]) > 0 {
-				ogl.UnsafePutPixel(x, y, ch.prev[i][j]...)
+				ogl.UnsafePutPixelRGB(x, y, ch.prev[i][j][0], ch.prev[i][j][1], ch.prev[i][j][2])
 			}
 		}
 	}
@@ -183,13 +183,7 @@ func (ch *Chr) contains(x, y int) bool {
 
 func (ch *Chr) Show() {
 	for i, l := range ch.cur {
-		for j, e := range l {
-			cp := make([]byte, 0)
-			for _, c := range e {
-				cp = append(cp, c)
-			}
-			ch.prev[i][j] = cp
-		}
+		copy(ch.prev[i], l)
 	}
 	if !ch.IsVisible() {
 		for i, l := range ch.cur {
@@ -211,7 +205,7 @@ func (ch *Chr) Show() {
 				if contains {
 					ch.cur[i][j] = rgbArr
 				} else {
-					ch.cur[i][j] = ogl.GetPixel(x, y)
+					ch.cur[i][j] = ogl.GetPixelUnsafe(x, y)
 				}
 			} else {
 				ch.cur[i][j] = make([]byte, 0)
@@ -228,8 +222,8 @@ func (ch *Chr) draw() {
 		for j = ch.shapeWidth - 1; j >= 0; j-- {
 			x_ := ch.X + j
 			y_ := ch.Y - i
-			if ch.shape[i][j] > 0 && ch.IsPixelVisible(x_, y_) {
-				ogl.UnsafePutPixel(x_, y_, ch.Color)
+			if ch.shape[i][j] > 0 {
+				ogl.PutPixelRGB(x_, y_, ch.Color, ch.Color, ch.Color)
 			}
 		}
 	}
@@ -322,17 +316,11 @@ func (ch *Chr) prevContains(x int, y int) ([]byte, bool) {
 	if len(ch.prev[i][j]) < 1 {
 		return nil, false
 	}
-	cp := make([]byte, 0)
-	for _, c := range ch.prev[i][j] {
-		cp = append(cp, c)
-	}
-	return cp, true
+
+	return ch.prev[i][j], true
 }
 
 func (ch *Chr) curNotContainsOrInvisible(x int, y int) bool {
-	if len(ch.cur) < 1 {
-		return true
-	}
 	i := ch.Y - y
 	if i < 0 || i >= ch.shapeHeight {
 		return true

@@ -93,7 +93,7 @@ func Close() {
 }
 
 func PutPixel(x, y int, color ...byte) {
-	if x < 0 || x >= width || y < 0 && y >= height {
+	if x < 0 || x >= width || y < 0 || y >= height {
 		return
 	}
 	index := lookupTable[y][x]
@@ -141,6 +141,25 @@ func UnsafePutPixel(x, y int, color ...byte) {
 	pixelArr[index+2] = b
 }
 
+func UnsafePutPixelRGB(x, y int, r, g, b byte) {
+	i := lookupTable[y][x]
+
+	pixelArr[i] = r
+	pixelArr[i+1] = g
+	pixelArr[i+2] = b
+}
+
+func PutPixelRGB(x, y int, r, g, b byte) {
+	if x < 0 || x >= width || y < 0 || y >= height {
+		return
+	}
+	index := lookupTable[y][x]
+
+	pixelArr[index] = r
+	pixelArr[index+1] = g
+	pixelArr[index+2] = b
+}
+
 func GetPixel(x, y int) []byte {
 	if x < 0 || x >= width || y < 0 && y >= height {
 		return []byte{}
@@ -148,6 +167,12 @@ func GetPixel(x, y int) []byte {
 	index := lookupTable[y][x]
 
 	return []byte{pixelArr[index], pixelArr[index+1], pixelArr[index+2]}
+}
+
+func GetPixelUnsafe(x, y int) []byte {
+	i := lookupTable[y][x]
+
+	return []byte{pixelArr[i], pixelArr[i+1], pixelArr[i+2]}
 }
 
 func GetWindowWidth() int {
@@ -169,6 +194,7 @@ func Draw(run func()) {
 }
 
 func draw(window *glfw.Window, run func()) {
+
 	pboPtr := gl.MapBuffer(gl.PIXEL_UNPACK_BUFFER, gl.WRITE_ONLY)
 	if pboPtr == nil {
 		return
@@ -184,7 +210,7 @@ func draw(window *glfw.Window, run func()) {
 	glfw.PollEvents()
 	processInput(window)
 	SwapBuffers()
-	//ClearScreen()
+
 }
 
 func GetCurrentIndex() int {
