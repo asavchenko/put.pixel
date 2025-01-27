@@ -3,6 +3,8 @@ package characters
 import (
 	"assa.com/put.pixel/lib/ogl"
 	"assa.com/put.pixel/src/characters/utf8"
+	"math"
+	"time"
 )
 
 const INVISIBLE_COLOR = 0xffffffff
@@ -18,6 +20,8 @@ type Chr struct {
 	shape           []byte
 	prev            []uint32
 	cur             []uint32
+	commands        map[string]interface{}
+	commandsCh      chan map[string]interface{}
 	wH              int
 	wW              int
 	width           int
@@ -32,7 +36,7 @@ func (ch *Chr) GetCharacterSize() int {
 }
 
 func (ch *Chr) SetCharacterSize(size int) *Chr {
-	ch.HideIgnoreVisible()
+	ch.hideIgnoreVisible()
 	switch size {
 	case 14:
 		ch.shape = utf8.GetShape(ch.Ch)
@@ -111,6 +115,36 @@ func GetNew(chRune rune, x, y int, color byte) *Chr {
 		di += ch.shapeWidth
 	}
 
+	ch.commands = make(map[string]interface{}, 0)
+	ch.commandsCh = make(chan map[string]interface{}, 9)
+	go func() {
+		for command := range ch.commandsCh {
+			switch command["action"] {
+			case "get_position":
+				select {
+				case command["output_to"].(chan []int) <- []int{ch.X, ch.Y}:
+				case <-time.After(3 * time.Second):
+				}
+			case "move":
+				data := command["data"].(map[string]interface{})
+				dx := data["dx"].(int)
+				dy := data["dy"].(int)
+				ch.move(dx, dy)
+				select {
+				case command["done"].(chan bool) <- true:
+				case <-time.After(3 * time.Second):
+				}
+			case "scale":
+				data := command["data"].(map[string]interface{})
+				size := data["size"].(int)
+				ch.Scale(size)
+				select {
+				case command["done"].(chan bool) <- true:
+				case <-time.After(3 * time.Second):
+				}
+			}
+		}
+	}()
 	return ch
 }
 
@@ -126,20 +160,80 @@ func (ch *Chr) IsInvisible() bool {
 	return ch.X+ch.shapeWidth <= 0 || ch.X >= ch.wW || ch.Y+ch.shapeHeight <= 0 || ch.Y >= ch.wH
 }
 
-func (ch *Chr) IsPixelVisible(x, y int) bool {
+func (ch *Chr) isPixelVisible(x, y int) bool {
 	return x >= 0 && y >= 0 && x < ch.wW && y < ch.wH
 }
 
-func (ch *Chr) Move(dx, dy int) {
+func (ch *Chr) Move(dx, dy int) chan bool {
+	doneCh := make(chan bool, 1)
+	select {
+	case ch.commandsCh <- map[string]interface{}{
+		"action": "move",
+		"data": map[string]interface{}{
+			"dx": dx,
+			"dy": dy,
+		},
+		"done": doneCh,
+	}:
+	case <-time.After(3 * time.Second):
+	}
+
+	return doneCh
+}
+
+func (ch *Chr) Scale(size int) chan bool {
+	doneCh := make(chan bool, 1)
+	select {
+	case ch.commandsCh <- map[string]interface{}{
+		"action": "scale",
+		"data": map[string]interface{}{
+			"size": size,
+		},
+		"done": doneCh,
+	}:
+	case <-time.After(3 * time.Second):
+	}
+
+	return doneCh
+}
+
+func (ch *Chr) GetPosition() (int, int) {
+	readFrom := make(chan []int, 1)
+	select {
+	case ch.commandsCh <- map[string]interface{}{
+		"action":    "get_position",
+		"output_to": readFrom,
+	}:
+	case <-time.After(3 * time.Second):
+		return 0, 0
+	}
+	select {
+	case res := <-readFrom:
+		return res[0], res[1]
+	case <-time.After(3 * time.Second):
+		return 0, 0
+	}
+}
+
+func (ch *Chr) move(dx, dy int) {
 	ch.PX = ch.X
 	ch.PY = ch.Y
 	ch.X += dx
 	ch.Y += dy
-	ch.Show()
-	ch.Hide()
+	ch.show()
+	ch.hide()
 }
 
-func (ch *Chr) Hide() {
+func (ch *Chr) MoveUnsafe(dx, dy int) {
+	ch.PX = ch.X
+	ch.PY = ch.Y
+	ch.X += dx
+	ch.Y += dy
+	ch.show()
+	ch.hide()
+}
+
+func (ch *Chr) hide() {
 	if ch.PX == ch.X && ch.PY == ch.Y {
 		return
 	}
@@ -160,7 +254,7 @@ func (ch *Chr) Hide() {
 	}
 }
 
-func (ch *Chr) HideIgnoreVisible() {
+func (ch *Chr) hideIgnoreVisible() {
 	x := ch.PX
 	y := ch.PY
 	di := 0
@@ -182,7 +276,7 @@ func (ch *Chr) contains(x, y int) bool {
 	return x < ch.X+ch.shapeWidth && x >= ch.X && y < ch.Y+ch.shapeHeight && y >= ch.Y
 }
 
-func (ch *Chr) Show() {
+func (ch *Chr) show() {
 	for i, e := range ch.cur {
 		ch.prev[i] = e
 	}
@@ -204,7 +298,7 @@ func (ch *Chr) Show() {
 	for i := 0; i < ch.shapeHeight; i++ {
 		for j := 0; j < ch.shapeWidth; j++ {
 			dij := di + j
-			if ch.IsPixelVisible(x, y) {
+			if ch.isPixelVisible(x, y) {
 				rgb, contains := ch.prevContains(x, y, dij)
 				if contains {
 					ch.cur[dij] = rgb
@@ -241,73 +335,71 @@ func (ch *Chr) draw() {
 	}
 }
 
-func (ch *Chr) Scale(size int) {
-	//defer func() {
-	//	ch.shapeHeight = len(ch.shape)
-	//	for _, l := range ch.shape {
-	//		ch.shapeWidth = len(l)
-	//		break
-	//	}
-	//	ch.prev = make([][][]byte, ch.shapeHeight)
-	//	ch.cur = make([][][]byte, ch.shapeHeight)
-	//	for i := 0; i < ch.shapeHeight; i++ {
-	//		ch.cur[i] = make([][]byte, ch.shapeWidth)
-	//		for j := 0; j < ch.shapeWidth; j++ {
-	//			ch.cur[i][j] = []byte{}
-	//		}
-	//	}
-	//	copy(ch.prev, ch.cur)
-	//}()
-	//original := utf8.GetShape(ch.Ch)
-	//resized := make([][]byte, 0)
-	//ow := ch.GetCharacterWidth()
-	//oh := ch.GetCharacterHeight()
-	//ch.Size = size
-	//nw := ch.GetCharacterWidth()
-	//nh := ch.GetCharacterHeight()
-	//kw := float64(nw) / float64(ow)
-	//kh := float64(nh) / float64(oh)
-	//resized = make([][]byte, nh)
-	//if kw > 1 && kh > 1 {
-	//	for j := 0; j < nh; j++ {
-	//		resized[j] = make([]byte, nw)
-	//		for i := 0; i < nw; i++ {
-	//			y := int(math.Ceil(float64(j) / kh))
-	//			x := int(math.Ceil(float64(i) / kw))
-	//			if x >= ow {
-	//				x = ow - 1
-	//			}
-	//			if y >= oh {
-	//				y = oh - 1
-	//			}
-	//
-	//			resized[j][i] = original[y][x]
-	//		}
-	//	}
-	//	ch.shape = resized
-	//	return
-	//}
-	//for i := 0; i < nh; i++ {
-	//	resized[i] = make([]byte, nw)
-	//}
-	//for j := 0; j < oh; j++ {
-	//	for i := 0; i < ow; i++ {
-	//		if original[j][i] < 1 {
-	//			continue
-	//		}
-	//		y := int(math.Ceil(float64(j) * kh))
-	//		x := int(math.Ceil(float64(i) * kw))
-	//		if y >= nh {
-	//			y = nh - 1
-	//		}
-	//		if x >= nw {
-	//			x = nw - 1
-	//		}
-	//
-	//		resized[y][x] = original[j][i]
-	//	}
-	//}
-	//ch.shape = resized
+func (ch *Chr) scale(size int) {
+	defer func() {
+		ch.prev = make([]uint32, ch.shapeHeight*ch.shapeWidth)
+		ch.cur = make([]uint32, ch.shapeHeight*ch.shapeWidth)
+		di := 0
+		for i := 0; i < ch.shapeHeight; i++ {
+			for j := 0; j < ch.shapeWidth; j++ {
+				dij := di + j
+				ch.cur[dij] = INVISIBLE_COLOR
+				ch.prev[dij] = INVISIBLE_COLOR
+			}
+			di += ch.shapeWidth
+		}
+	}()
+	original := utf8.GetShape(ch.Ch)
+	ow := ch.GetCharacterWidth()
+	oh := ch.GetCharacterHeight()
+	ch.Size = size
+	nw := ch.GetCharacterWidth()
+	nh := ch.GetCharacterHeight()
+	kw := float64(nw) / float64(ow)
+	kh := float64(nh) / float64(oh)
+	ch.shapeWidth = nw
+	ch.shapeHeight = nh
+	resized := make([]byte, nh*nw)
+	if kw > 1 && kh > 1 {
+		dj := 0
+		for j := 0; j < nh; j++ {
+			for i := 0; i < nw; i++ {
+				y := int(math.Ceil(float64(j) / kh))
+				x := int(math.Ceil(float64(i) / kw))
+				if x >= ow {
+					x = ow - 1
+				}
+				if y >= oh {
+					y = oh - 1
+				}
+
+				resized[dj+i] = original[y*ow+x]
+			}
+			dj += nw
+		}
+		ch.shape = resized
+		return
+	}
+	dj := 0
+	for j := 0; j < oh; j++ {
+		for i := 0; i < ow; i++ {
+			if original[dj+i] < 1 {
+				continue
+			}
+			y := int(math.Ceil(float64(j) * kh))
+			x := int(math.Ceil(float64(i) * kw))
+			if y >= nh {
+				y = nh - 1
+			}
+			if x >= nw {
+				x = nw - 1
+			}
+
+			resized[y*nw+x] = original[dj+i]
+		}
+		dj += ow
+	}
+	ch.shape = resized
 }
 
 func (ch *Chr) prevContains(x, y int, idx int) (uint32, bool) {

@@ -181,11 +181,13 @@ func onKeyPress(w *glfw.Window, keyPressed glfw.Key, scancode int, action glfw.A
 		pressedKeys = append(pressedKeys, keyPressed)
 	}
 	if action == glfw.Release {
-		for i, key := range pressedKeys {
-			if key == keyPressed {
-				pressedKeys = append(pressedKeys[:i], pressedKeys[i+1:]...)
+		newKeys := make([]glfw.Key, 0)
+		for _, key := range pressedKeys {
+			if key != keyPressed {
+				newKeys = append(newKeys, key)
 			}
 		}
+		pressedKeys = newKeys
 	}
 	for state, keys := range keyCallbacks {
 		for key, callbacks := range keys {

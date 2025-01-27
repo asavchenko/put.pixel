@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"runtime/pprof"
 	"strings"
 	"syscall"
 	"time"
@@ -22,13 +23,13 @@ func init() {
 }
 
 func main() {
-	//f, err := os.Create("myprogram.prof") // then go tool pprof -http=:8080 myprogram.prof
-	//if err != nil {
-	//	fmt.Println(err)
-	//	return
-	//}
-	//pprof.StartCPUProfile(f)
-	//defer pprof.StopCPUProfile()
+	f, err := os.Create("myprogram.prof") // then go tool pprof -http=:8080 myprogram.prof
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	pprof.StartCPUProfile(f)
+	defer pprof.StopCPUProfile()
 
 	ogl.Init(false)
 	defer ogl.Close()
@@ -57,7 +58,7 @@ func main() {
 
 	Where can I get some?
 	There are many variations of passages of Lorem Ipsum available, but the majority have suffered alteration in some form, by injected humour, or randomised words which don't look even slightly believable. If you are going to use a passage of Lorem Ipsum, you need to be sure there isn't anything embarrassing hidden in the middle of text. All the Lorem Ipsum generators on the Internet tend to repeat predefined chunks as necessary, making this the first true generator on the Internet. It uses a dictionary of over 200 Latin words, combined with a handful of model sentence structures, to generate Lorem Ipsum which looks reasonable. The generated Lorem Ipsum is therefore always free from repetition, injected humour, or non-characteristic words etc.`
-
+	//text = "It works!"
 	//text := "Я родился!"
 	w := ogl.GetWindowWidth()
 	h := ogl.GetWindowHeight()
@@ -104,19 +105,43 @@ func main() {
 	}
 	numChrs := len(chrs)
 	fmt.Println(numChrs)
+
 	for {
 		if ogl.IsExit() {
 			break
 		}
 		ogl.Draw(func() {
+			//defer timer("inside draw")()
 			//ogl.ClearScreen()
+			//doneChs := make([]chan bool, numChrs)
+			//for i := 0; i < numChrs; i++ {
+			//	_, y := chrs[i].GetPosition()
+			//	if y+chrs[i].GetCharacterHeight() < 0 {
+			//		doneChs[i] = chrs[i].Move(0, ogl.GetWindowHeight()+2*chrs[i].GetHeight())
+			//	} else {
+			//		doneChs[i] = chrs[i].Move(0, dy)
+			//	}
+			//}
+			//for _, ch := range doneChs {
+			//	<-ch
+			//}
+
 			for i := 0; i < numChrs; i++ {
-				chrs[i].Move(0, dy)
-				if chrs[i].Y+chrs[i].GetCharacterHeight() < 0 {
-					chrs[i].Move(0, ogl.GetWindowHeight()+2*chrs[i].GetHeight())
+				y := chrs[i].Y
+				if y+chrs[i].GetCharacterHeight() < 0 {
+					chrs[i].MoveUnsafe(0, ogl.GetWindowHeight()+2*chrs[i].GetHeight())
+				} else {
+					chrs[i].MoveUnsafe(0, dy)
 				}
 			}
 		})
+	}
+}
+
+func timer(name string) func() {
+	start := time.Now()
+	return func() {
+		fmt.Printf("%s took %v\n", name, time.Since(start))
 	}
 }
 
