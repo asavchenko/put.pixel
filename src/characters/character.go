@@ -103,6 +103,16 @@ func GetNew(chRune rune, x, y int, color byte) *Chr {
 		ch.shapeWidth = len(l)
 		break
 	}
+	ch.prev = make([][][]byte, ch.shapeHeight)
+	ch.cur = make([][][]byte, ch.shapeHeight)
+	for i := 0; i < ch.shapeHeight; i++ {
+		ch.cur[i] = make([][]byte, ch.shapeWidth)
+		ch.prev[i] = make([][]byte, ch.shapeWidth)
+		for j := 0; j < ch.shapeWidth; j++ {
+			ch.cur[i][j] = []byte{}
+			ch.prev[i][j] = []byte{}
+		}
+	}
 
 	return ch
 }
@@ -116,19 +126,11 @@ func (ch *Chr) GetHeight() int {
 }
 
 func (ch *Chr) IsVisible() bool {
-	if ch.X < 0 && ch.X+ch.shapeWidth < 0 {
+	if (ch.X < 0 && ch.X+ch.shapeWidth < 0) || (ch.X >= ch.wW && ch.X+ch.shapeWidth >= ch.wW) {
 		return false
 	}
 
-	if ch.X >= ch.wW && ch.X+ch.shapeWidth >= ch.wW {
-		return false
-	}
-
-	if ch.Y < 0 && ch.Y-ch.shapeHeight < 0 {
-		return false
-	}
-
-	if ch.Y >= ch.wH && ch.Y-ch.shapeHeight >= ch.wH {
+	if ch.Y < 0 || (ch.Y >= ch.wH && ch.Y-ch.shapeHeight >= ch.wH) {
 		return false
 	}
 
@@ -155,8 +157,10 @@ func (ch *Chr) Hide() {
 	var i, j int
 	for i = ch.shapeHeight - 1; i >= 0; i-- {
 		for j = ch.shapeWidth - 1; j >= 0; j-- {
-			if ch.IsPixelVisible(ch.PX+j, ch.PY-i) && ch.curNotContainsOrInvisible(ch.PX+j, ch.PY-i) && len(ch.prev) > 0 && len(ch.prev[i]) > 0 && len(ch.prev[i][j]) > 0 {
-				ogl.PutPixel(ch.PX+j, ch.PY-i, ch.prev[i][j]...)
+			x := ch.PX + j
+			y := ch.PY - i
+			if ch.IsPixelVisible(x, y) && ch.curNotContainsOrInvisible(x, y) && len(ch.prev) > 0 && len(ch.prev[i]) > 0 && len(ch.prev[i][j]) > 0 {
+				ogl.UnsafePutPixel(x, y, ch.prev[i][j]...)
 			}
 		}
 	}
@@ -167,7 +171,7 @@ func (ch *Chr) HideIgnoreVisible() {
 	for i = ch.shapeHeight - 1; i >= 0; i-- {
 		for j = ch.shapeWidth - 1; j >= 0; j-- {
 			if ch.IsPixelVisible(ch.PX+j, ch.PY-i) && len(ch.prev) > 0 && len(ch.prev[i]) > 0 && len(ch.prev[i][j]) > 0 {
-				ogl.PutPixel(ch.PX+j, ch.PY-i, ch.prev[i][j]...)
+				ogl.UnsafePutPixel(ch.PX+j, ch.PY-i, ch.prev[i][j]...)
 			}
 		}
 	}
@@ -178,41 +182,54 @@ func (ch *Chr) contains(x, y int) bool {
 }
 
 func (ch *Chr) Show() {
-	ch.prev = make([][][]byte, ch.shapeHeight)
-	copy(ch.prev, ch.cur)
-	ch.cur = make([][][]byte, ch.shapeHeight)
-	if !ch.IsVisible() {
-		return
+	for i, l := range ch.cur {
+		for j, e := range l {
+			cp := make([]byte, 0)
+			for _, c := range e {
+				cp = append(cp, c)
+			}
+			ch.prev[i][j] = cp
+		}
 	}
-	var i, j int
-	for i = ch.shapeHeight - 1; i >= 0; i-- {
-		line := make([][]byte, ch.shapeWidth)
-		for j = ch.shapeWidth - 1; j >= 0; j-- {
-			if ch.IsPixelVisible(ch.X+j, ch.Y-i) {
-				rgbArr, contains := ch.prevContains(ch.X+j, ch.Y-i)
-				if contains && len(rgbArr) > 0 {
-					line[j] = rgbArr
-				} else {
-					line[j] = ogl.GetPixel(ch.X+j, ch.Y-i)
-				}
-			} else {
-				line[j] = []byte{}
+	if !ch.IsVisible() {
+		for i, l := range ch.cur {
+			for j := range l {
+				ch.cur[i][j] = []byte{}
 			}
 		}
-		ch.cur[i] = line
-	}
-	ch.draw(ch.shape, ch.X, ch.Y)
-}
 
-func (ch *Chr) draw(shape [][]byte, x, y int) {
-	if !ch.IsVisible() {
 		return
 	}
+
 	var i, j int
-	for i = len(shape) - 1; i >= 0; i-- {
-		for j = len(shape[i]) - 1; j >= 0; j-- {
-			if shape[i][j] > 0 && ch.IsPixelVisible(x+j, y-i) {
-				ogl.PutPixel(x+j, y-i, ch.Color)
+	for i = ch.shapeHeight - 1; i >= 0; i-- {
+		for j = ch.shapeWidth - 1; j >= 0; j-- {
+			x := ch.X + j
+			y := ch.Y - i
+			if ch.IsPixelVisible(x, y) {
+				rgbArr, contains := ch.prevContains(x, y)
+				if contains {
+					ch.cur[i][j] = rgbArr
+				} else {
+					ch.cur[i][j] = ogl.GetPixel(x, y)
+				}
+			} else {
+				ch.cur[i][j] = make([]byte, 0)
+			}
+		}
+	}
+
+	ch.draw()
+}
+
+func (ch *Chr) draw() {
+	var i, j int
+	for i = ch.shapeHeight - 1; i >= 0; i-- {
+		for j = ch.shapeWidth - 1; j >= 0; j-- {
+			x_ := ch.X + j
+			y_ := ch.Y - i
+			if ch.shape[i][j] > 0 && ch.IsPixelVisible(x_, y_) {
+				ogl.UnsafePutPixel(x_, y_, ch.Color)
 			}
 		}
 	}
@@ -225,6 +242,15 @@ func (ch *Chr) Scale(size int) {
 			ch.shapeWidth = len(l)
 			break
 		}
+		ch.prev = make([][][]byte, ch.shapeHeight)
+		ch.cur = make([][][]byte, ch.shapeHeight)
+		for i := 0; i < ch.shapeHeight; i++ {
+			ch.cur[i] = make([][]byte, ch.shapeWidth)
+			for j := 0; j < ch.shapeWidth; j++ {
+				ch.cur[i][j] = []byte{}
+			}
+		}
+		copy(ch.prev, ch.cur)
 	}()
 	original := utf8.GetShape(ch.Ch)
 	resized := make([][]byte, 0)
@@ -296,15 +322,15 @@ func (ch *Chr) prevContains(x int, y int) ([]byte, bool) {
 	if len(ch.prev[i][j]) < 1 {
 		return nil, false
 	}
-
-	return ch.prev[i][j], true
+	cp := make([]byte, 0)
+	for _, c := range ch.prev[i][j] {
+		cp = append(cp, c)
+	}
+	return cp, true
 }
 
 func (ch *Chr) curNotContainsOrInvisible(x int, y int) bool {
 	if len(ch.cur) < 1 {
-		return true
-	}
-	if !ch.IsPixelVisible(x, y) {
 		return true
 	}
 	i := ch.Y - y

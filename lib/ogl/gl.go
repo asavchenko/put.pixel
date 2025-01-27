@@ -28,12 +28,21 @@ var lastWidth, lastHeight int
 var keyCallbacks map[string]map[glfw.Key][]func()
 var keyCombinationCallbacks map[string]map[string]interface{}
 var pressedKeys []glfw.Key
+var lookupTable [][]int
 
 func init() {
 	keyCallbacks = make(map[string]map[glfw.Key][]func(), 0)
 	keyCombinationCallbacks = make(map[string]map[string]interface{}, 0)
 	pressedKeys = make([]glfw.Key, 0)
 	pixelArr = make([]byte, width*height*3)
+	lookupTable = make([][]int, height)
+	for i := 0; i < height; i++ {
+		line := make([]int, width)
+		for j := 0; j < width; j++ {
+			line[j] = (j + i*width) * 3
+		}
+		lookupTable[i] = line
+	}
 }
 
 func Init(fullScreen bool) {
@@ -84,13 +93,33 @@ func Close() {
 }
 
 func PutPixel(x, y int, color ...byte) {
-	index := (x + y*width) * 3
-	if index < 0 {
+	if x < 0 || x >= width || y < 0 && y >= height {
 		return
 	}
-	if index+2 > len(pixelArr)-1 {
-		return
+	index := lookupTable[y][x]
+	r := byte(0)
+	g := byte(0)
+	b := byte(0)
+	if len(color) == 1 {
+		r = color[0]
+		g = color[0]
+		b = color[0]
+	} else if len(color) == 2 {
+		r = color[0]
+		g = color[1]
+	} else if len(color) == 3 {
+		r = color[0]
+		g = color[1]
+		b = color[2]
 	}
+
+	pixelArr[index] = r
+	pixelArr[index+1] = g
+	pixelArr[index+2] = b
+}
+
+func UnsafePutPixel(x, y int, color ...byte) {
+	index := lookupTable[y][x]
 	r := byte(0)
 	g := byte(0)
 	b := byte(0)
@@ -113,13 +142,10 @@ func PutPixel(x, y int, color ...byte) {
 }
 
 func GetPixel(x, y int) []byte {
-	index := (x + y*width) * 3
-	if index < 0 {
+	if x < 0 || x >= width || y < 0 && y >= height {
 		return []byte{}
 	}
-	if index+2 > len(pixelArr)-1 {
-		return []byte{}
-	}
+	index := lookupTable[y][x]
 
 	return []byte{pixelArr[index], pixelArr[index+1], pixelArr[index+2]}
 }
@@ -143,11 +169,11 @@ func Draw(run func()) {
 }
 
 func draw(window *glfw.Window, run func()) {
-	pboPtr := gl.MapBuffer(gl.PIXEL_UNPACK_BUFFER, gl.WRITE_ONLY_ARB)
+	pboPtr := gl.MapBuffer(gl.PIXEL_UNPACK_BUFFER, gl.WRITE_ONLY)
 	if pboPtr == nil {
 		return
 	}
-	if !gl.UnmapBuffer(gl.PIXEL_UNPACK_BUFFER_ARB) {
+	if !gl.UnmapBuffer(gl.PIXEL_UNPACK_BUFFER) {
 		return
 	}
 	copy((*[width * height * 3]byte)(pboPtr)[:width*height*3], pixelArr)

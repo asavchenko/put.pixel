@@ -27,15 +27,15 @@ func main() {
 	ogl.OnKeypress(ogl.KEY_ESC, func() {
 		ogl.CloseWindow()
 	})
-	dx := 0
+	dy := -1
 	ogl.OnKeypress(ogl.KEY_SPACE, func() {
-		if dx == 0 {
-			dx -= 1
+		if dy == 0 {
+			dy -= 1
 		} else {
-			dx = 0
+			dy = 0
 		}
 	})
-	text := "Very long string goes here without question"
+	text := "It works!"
 	//text := "Я родился!"
 	w := ogl.GetWindowWidth()
 	h := ogl.GetWindowHeight()
@@ -49,7 +49,6 @@ func main() {
 		chrs = append(chrs, characters.GetNew(r, x, y, color).SetCharacterSize(fontSize))
 		x += characters.GetCharacterWidth(fontSize) + characters.GetSpaceSizeBtwCharacters(fontSize)
 	}
-
 	numChrs := len([]rune(text))
 	for {
 		if ogl.IsExit() {
@@ -57,8 +56,8 @@ func main() {
 		}
 		ogl.Draw(func() {
 			for i := 0; i < numChrs; i++ {
-				chrs[i].Move(0, dx)
-				if chrs[i].Y < 0 {
+				chrs[i].Move(0, dy)
+				if chrs[i].Y+chrs[i].GetCharacterHeight() < 0 {
 					chrs[i].Move(0, ogl.GetWindowHeight()+2*chrs[i].GetHeight())
 				}
 			}

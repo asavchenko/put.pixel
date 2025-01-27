@@ -1,7 +1,6 @@
 package utf8
 
 import (
-	"fmt"
 	"math"
 	"time"
 
@@ -116,7 +115,7 @@ func getEmptyShape() [][]byte {
 }
 
 func GetShape(ch rune) [][]byte {
-	fmt.Println(string(ch), ch)
+	//fmt.Println(string(ch), ch)
 	out := make(chan interface{}, 1)
 	select {
 	case ctrlShapeCh <- map[string]interface{}{
@@ -132,7 +131,6 @@ func GetShape(ch rune) [][]byte {
 	case <-time.After(3 * time.Second):
 		return getEmptyShape()
 	}
-
 }
 
 func reverseShape(arr [][]byte) [][]byte {
