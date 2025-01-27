@@ -37,13 +37,7 @@ func main() {
 		ogl.CloseWindow()
 	})
 	dy := -1
-	ogl.OnKeypress(ogl.KEY_SPACE, func() {
-		if dy == 0 {
-			dy -= 1
-		} else {
-			dy = 0
-		}
-	})
+
 	text := `What is Lorem Ipsum?
 	Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.
 
@@ -58,11 +52,12 @@ func main() {
 
 	Where can I get some?
 	There are many variations of passages of Lorem Ipsum available, but the majority have suffered alteration in some form, by injected humour, or randomised words which don't look even slightly believable. If you are going to use a passage of Lorem Ipsum, you need to be sure there isn't anything embarrassing hidden in the middle of text. All the Lorem Ipsum generators on the Internet tend to repeat predefined chunks as necessary, making this the first true generator on the Internet. It uses a dictionary of over 200 Latin words, combined with a handful of model sentence structures, to generate Lorem Ipsum which looks reasonable. The generated Lorem Ipsum is therefore always free from repetition, injected humour, or non-characteristic words etc.`
+	//text = "A"
 	//text = "It works!"
 	//text := "Я родился!"
 	w := ogl.GetWindowWidth()
 	h := ogl.GetWindowHeight()
-	color := byte(200)
+	color := byte(0)
 	fontSize := 14
 	textHeight := characters.GetCharacterHeight(fontSize) + characters.GetLineSpaceSize(fontSize)
 	chWidth := characters.GetCharacterWidth(fontSize) + characters.GetSpaceSizeBtwCharacters(fontSize)
@@ -105,12 +100,36 @@ func main() {
 	}
 	numChrs := len(chrs)
 	fmt.Println(numChrs)
+	ogl.OnKeypress(ogl.KEY_SPACE, func() {
+		if dy == 0 {
+			dy -= 1
+		} else {
+			dy = 0
+		}
+	})
 
+	isInit := true
 	for {
 		if ogl.IsExit() {
 			break
 		}
 		ogl.Draw(func() {
+			if isInit {
+				ogl.FillScreen(200)
+				fmt.Println("filled")
+				isInit = false
+				return
+			}
+			for i := 0; i < numChrs; i++ {
+				y := chrs[i].Y
+				if y+chrs[i].GetCharacterHeight() < 0 {
+					chrs[i].MoveUnsafe(0, ogl.GetWindowHeight()+2*chrs[i].GetHeight())
+				} else {
+					chrs[i].MoveUnsafe(0, dy)
+				}
+				chrs[i].ShowUnsafe()
+				chrs[i].HideUnsafe()
+			}
 			//defer timer("inside draw")()
 			//ogl.ClearScreen()
 			//doneChs := make([]chan bool, numChrs)
@@ -125,15 +144,6 @@ func main() {
 			//for _, ch := range doneChs {
 			//	<-ch
 			//}
-
-			for i := 0; i < numChrs; i++ {
-				y := chrs[i].Y
-				if y+chrs[i].GetCharacterHeight() < 0 {
-					chrs[i].MoveUnsafe(0, ogl.GetWindowHeight()+2*chrs[i].GetHeight())
-				} else {
-					chrs[i].MoveUnsafe(0, dy)
-				}
-			}
 		})
 	}
 }

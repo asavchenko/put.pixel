@@ -20,7 +20,6 @@ type Chr struct {
 	shape           []byte
 	prev            []uint32
 	cur             []uint32
-	commands        map[string]interface{}
 	commandsCh      chan map[string]interface{}
 	wH              int
 	wW              int
@@ -28,6 +27,7 @@ type Chr struct {
 	height          int
 	shapeWidth      int
 	shapeHeight     int
+	shapeSize       int
 	isVeryFirstShow bool
 }
 
@@ -102,7 +102,7 @@ func GetNew(chRune rune, x, y int, color byte) *Chr {
 	ch.Size = 14
 	ch.width = ch.GetCharacterWidth()
 	ch.height = ch.GetCharacterHeight()
-
+	ch.shapeSize = ch.shapeHeight * ch.shapeWidth
 	ch.prev = make([]uint32, ch.shapeHeight*ch.shapeWidth)
 	ch.cur = make([]uint32, ch.shapeHeight*ch.shapeWidth)
 	di := 0
@@ -115,8 +115,7 @@ func GetNew(chRune rune, x, y int, color byte) *Chr {
 		di += ch.shapeWidth
 	}
 
-	ch.commands = make(map[string]interface{}, 0)
-	ch.commandsCh = make(chan map[string]interface{}, 9)
+	ch.commandsCh = make(chan map[string]interface{}, 0)
 	go func() {
 		for command := range ch.commandsCh {
 			switch command["action"] {
@@ -229,11 +228,9 @@ func (ch *Chr) MoveUnsafe(dx, dy int) {
 	ch.PY = ch.Y
 	ch.X += dx
 	ch.Y += dy
-	ch.show()
-	ch.hide()
 }
 
-func (ch *Chr) hide() {
+func (ch *Chr) HideUnsafe() {
 	if ch.PX == ch.X && ch.PY == ch.Y {
 		return
 	}
@@ -243,8 +240,31 @@ func (ch *Chr) hide() {
 	for i := 0; i < ch.shapeHeight; i++ {
 		for j := 0; j < ch.shapeWidth; j++ {
 			dij := di + j
-			if ch.prev[dij] != INVISIBLE_COLOR && ch.curNotContainsOrInvisible(x, y, dij) {
-				ogl.UnsafePutPixelRGB(x, y, byte(ch.prev[dij]&0x00000011), byte(ch.prev[dij]&0x00001100), byte(ch.prev[dij]&0x00110000))
+			if ch.prev[dij] != INVISIBLE_COLOR && ch.curNotContainsOrInvisible(x, y) {
+				ogl.UnsafePutPixelRGB(x, y, byte(ch.prev[dij]&0x000000FF), byte((ch.prev[dij]&0x0000FF00)>>8), byte((ch.prev[dij]&0x00FF0000)>>16))
+			}
+			x++
+		}
+		x = ch.PX
+		y++
+		di += ch.shapeWidth
+	}
+}
+
+func (ch *Chr) hide() {
+	if ch.PX == ch.X && ch.PY == ch.Y {
+		return
+	}
+
+	x := ch.PX
+	y := ch.PY
+	di := 0
+	for i := 0; i < ch.shapeHeight; i++ {
+		for j := 0; j < ch.shapeWidth; j++ {
+			dij := di + j
+			if ch.prev[dij] != INVISIBLE_COLOR && ch.curNotContainsOrInvisible(x, y) {
+
+				ogl.UnsafePutPixelRGB(x, y, byte(ch.prev[dij]&0x000000FF), byte((ch.prev[dij]&0x0000FF00)>>8), byte((ch.prev[dij]&0x00FF0000)>>16))
 			}
 			x++
 		}
@@ -262,7 +282,7 @@ func (ch *Chr) hideIgnoreVisible() {
 		for j := 0; j < ch.shapeWidth; j++ {
 			dij := di + j
 			if ch.prev[dij] != INVISIBLE_COLOR {
-				ogl.UnsafePutPixelRGB(x, y, byte(ch.prev[dij]&0x00000011), byte(ch.prev[dij]&0x00001100), byte(ch.prev[dij]&0x00110000))
+				ogl.UnsafePutPixelRGB(x, y, byte(ch.prev[dij]&0x000000FF), byte((ch.prev[dij]&0x0000FF00)>>8), byte((ch.prev[dij]&0x00FF0000)>>16))
 			}
 			x++
 		}
@@ -299,7 +319,49 @@ func (ch *Chr) show() {
 		for j := 0; j < ch.shapeWidth; j++ {
 			dij := di + j
 			if ch.isPixelVisible(x, y) {
-				rgb, contains := ch.prevContains(x, y, dij)
+				rgb, contains := ch.prevContains(x, y)
+				if contains {
+					ch.cur[dij] = rgb
+				} else {
+					ch.cur[dij] = ogl.GetPixelUnsafe(x, y)
+				}
+			} else {
+				ch.cur[dij] = INVISIBLE_COLOR
+			}
+			x++
+		}
+		x = ch.X
+		y++
+		di += ch.shapeWidth
+	}
+
+	ch.draw()
+}
+
+func (ch *Chr) ShowUnsafe() {
+	for i, e := range ch.cur {
+		ch.prev[i] = e
+	}
+	if ch.IsInvisible() {
+		di := 0
+		for i := 0; i < ch.shapeHeight; i++ {
+			for j := 0; j < ch.shapeWidth; j++ {
+				ch.cur[di+j] = INVISIBLE_COLOR
+			}
+			di += ch.shapeWidth
+		}
+
+		return
+	}
+
+	x := ch.X
+	y := ch.Y
+	di := 0
+	for i := 0; i < ch.shapeHeight; i++ {
+		for j := 0; j < ch.shapeWidth; j++ {
+			dij := di + j
+			if ch.isPixelVisible(x, y) {
+				rgb, contains := ch.prevContains(x, y)
 				if contains {
 					ch.cur[dij] = rgb
 				} else {
@@ -348,6 +410,7 @@ func (ch *Chr) scale(size int) {
 			}
 			di += ch.shapeWidth
 		}
+		ch.shapeSize = ch.shapeHeight * ch.shapeWidth
 	}()
 	original := utf8.GetShape(ch.Ch)
 	ow := ch.GetCharacterWidth()
@@ -402,19 +465,24 @@ func (ch *Chr) scale(size int) {
 	ch.shape = resized
 }
 
-func (ch *Chr) prevContains(x, y int, idx int) (uint32, bool) {
-	if x >= ch.PX+ch.shapeWidth || x < ch.PX || y >= ch.PY+ch.shapeHeight || y < ch.PY {
+func (ch *Chr) prevContains(x, y int) (uint32, bool) {
+	i := x - ch.PX
+	if i < 0 || i >= ch.shapeWidth {
+		return INVISIBLE_COLOR, false
+	}
+	j := y - ch.PY
+	if j < 0 || j >= ch.shapeHeight {
 		return INVISIBLE_COLOR, false
 	}
 
-	e := ch.prev[idx]
+	e := ch.prev[i+j*ch.shapeWidth]
 	if e == INVISIBLE_COLOR {
 		return INVISIBLE_COLOR, false
 	}
 	return e, true
 }
 
-func (ch *Chr) curNotContainsOrInvisible(x, y int, idx int) bool {
+func (ch *Chr) curNotContainsOrInvisible(x, y int) bool {
 	i := x - ch.X
 	if i < 0 || i >= ch.shapeWidth {
 		return false

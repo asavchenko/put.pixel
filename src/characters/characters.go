@@ -35,7 +35,7 @@ func GetCharacterHeight(size int) int {
 }
 
 func GetSpaceSizeBtwCharacters(size int) int {
-	return GetCharacterWidth(size) / 9
+	return GetCharacterWidth(size) / 2
 }
 
 func GetLineSpaceSize(size int) int {

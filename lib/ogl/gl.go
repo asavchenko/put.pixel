@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"github.com/go-gl/gl/v2.1/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
-	"unsafe"
+	"strconv"
 
 	"log"
 )
@@ -19,6 +19,8 @@ const (
 	Ym     = height - 1
 )
 
+//var pixelArr *[width * height * 3]byte
+
 var pixelArr []byte
 var window *glfw.Window
 var buffers [1]uint32
@@ -28,20 +30,17 @@ var lastWidth, lastHeight int
 var keyCallbacks map[string]map[glfw.Key][]func()
 var keyCombinationCallbacks map[string]map[string]interface{}
 var pressedKeys []glfw.Key
-var lookupTable [][]int
+var lookupTable []int
 
 func init() {
 	keyCallbacks = make(map[string]map[glfw.Key][]func(), 0)
 	keyCombinationCallbacks = make(map[string]map[string]interface{}, 0)
 	pressedKeys = make([]glfw.Key, 0)
-	lookupTable = make([][]int, height)
+	lookupTable = make([]int, height)
 	for i := 0; i < height; i++ {
-		line := make([]int, width)
-		for j := 0; j < width; j++ {
-			line[j] = (j + i*width) * 3
-		}
-		lookupTable[i] = line
+		lookupTable[i] = i * width * 3
 	}
+	pixelArr = make([]byte, width*height*3)
 }
 
 func Init(fullScreen bool) {
@@ -95,7 +94,7 @@ func PutPixel(x, y int, color ...byte) {
 	if x < 0 || x >= width || y < 0 || y >= height {
 		return
 	}
-	index := lookupTable[y][x]
+	idx := lookupTable[y] + x<<1 + x
 	r := byte(0)
 	g := byte(0)
 	b := byte(0)
@@ -112,13 +111,13 @@ func PutPixel(x, y int, color ...byte) {
 		b = color[2]
 	}
 
-	pixelArr[index] = r
-	pixelArr[index+1] = g
-	pixelArr[index+2] = b
+	pixelArr[idx] = r
+	pixelArr[idx+1] = g
+	pixelArr[idx+2] = b
 }
 
 func UnsafePutPixel(x, y int, color ...byte) {
-	index := lookupTable[y][x]
+	idx := lookupTable[y] + x<<1 + x
 	r := byte(0)
 	g := byte(0)
 	b := byte(0)
@@ -135,13 +134,13 @@ func UnsafePutPixel(x, y int, color ...byte) {
 		b = color[2]
 	}
 
-	pixelArr[index] = r
-	pixelArr[index+1] = g
-	pixelArr[index+2] = b
+	pixelArr[idx] = r
+	pixelArr[idx+1] = g
+	pixelArr[idx+2] = b
 }
 
 func UnsafePutPixelRGB(x, y int, r, g, b byte) {
-	i := lookupTable[y][x]
+	i := lookupTable[y] + x<<1 + x
 
 	pixelArr[i] = r
 	pixelArr[i+1] = g
@@ -152,26 +151,62 @@ func PutPixelRGB(x, y int, r, g, b byte) {
 	if x < 0 || x >= width || y < 0 || y >= height {
 		return
 	}
-	index := lookupTable[y][x]
+	idx := lookupTable[y] + x<<1 + x
 
-	pixelArr[index] = r
-	pixelArr[index+1] = g
-	pixelArr[index+2] = b
+	pixelArr[idx] = r
+	pixelArr[idx+1] = g
+	pixelArr[idx+2] = b
 }
 
 func GetPixel(x, y int) []byte {
 	if x < 0 || x >= width || y < 0 && y >= height {
 		return []byte{}
 	}
-	index := lookupTable[y][x]
+	index := lookupTable[y] + x<<1 + x
 
 	return []byte{pixelArr[index], pixelArr[index+1], pixelArr[index+2]}
 }
 
 func GetPixelUnsafe(x, y int) uint32 {
-	i := lookupTable[y][x]
+	i := lookupTable[y] + x<<1 + x
 
-	return uint32(pixelArr[i]) + uint32(pixelArr[i+1]<<1) + uint32(pixelArr[i+2]<<2)
+	return uint32(pixelArr[i]) + uint32(pixelArr[i+1])<<8 + uint32(pixelArr[i+2])<<16
+}
+
+func printBitsUint32(b uint32) string {
+	// to binary representation
+	str := strconv.FormatInt(int64(b), 2)
+	// with leading zeros
+	delta := 32 - len(str)
+	for i := 0; i < delta; i++ {
+		str = "0" + str
+	}
+	// from string to byte array
+	chunk := make([]byte, 0)
+	for _, ds := range str {
+		d, _ := strconv.Atoi(string(ds))
+		chunk = append(chunk, byte(d))
+	}
+
+	return fmt.Sprint(chunk)
+}
+
+func printBits(b byte) string {
+	// to binary representation
+	str := strconv.FormatInt(int64(b), 2)
+	// with leading zeros
+	delta := 8 - len(str)
+	for i := 0; i < delta; i++ {
+		str = "0" + str
+	}
+	// from string to byte array
+	chunk := make([]byte, 0)
+	for _, ds := range str {
+		d, _ := strconv.Atoi(string(ds))
+		chunk = append(chunk, byte(d))
+	}
+
+	return fmt.Sprint(chunk)
 }
 
 func GetWindowWidth() int {
@@ -200,10 +235,11 @@ func draw(window *glfw.Window, run func()) {
 	if !gl.UnmapBuffer(gl.PIXEL_UNPACK_BUFFER) {
 		return
 	}
-	//screen := (*[width * height * 3]byte)(pboPtr)[:width*height*3]
-	pixelArr = unsafe.Slice((*byte)(pboPtr), width*height*3)
+	//pixelArr = (*[width * height * 3]byte)(pboPtr)
+	//pixelArr = unsafe.Slice((*byte)(pboPtr), width*height*3)
 	//pixelArr = (*[width * height * 3]byte)(pboPtr)[:width*height*3]
 
+	copy((*[width * height * 3]byte)(pboPtr)[:width*height*3], pixelArr)
 	run()
 
 	gl.DrawPixels(width, height, gl.RGB, gl.UNSIGNED_BYTE, nil)
@@ -224,5 +260,11 @@ func SwapBuffers() {
 func ClearScreen() {
 	for i := range pixelArr {
 		pixelArr[i] = 0
+	}
+}
+
+func FillScreen(color byte) {
+	for i := range pixelArr {
+		pixelArr[i] = color
 	}
 }
