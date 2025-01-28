@@ -14,8 +14,8 @@ var availableCharCodes []uint32
 var ctrlShapeCh chan map[string]interface{}
 var emptyShape = GetEmptyShape()
 
-const WIDTH = 16
-const HEIGHT = 24
+const WIDTH = 18
+const HEIGHT = 27
 
 func init() {
 	if f, err := freetype.LoadFont("src/characters/utf8/LiberationMono-Regular.ttf"); err != nil {
@@ -85,8 +85,7 @@ func init() {
 }
 
 func GetShapeWidth() int {
-	w := float64(WIDTH)
-	return int(w / 1.5)
+	return WIDTH
 }
 
 func GetShapeHeight() int {

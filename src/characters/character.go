@@ -1,10 +1,12 @@
 package characters
 
 import (
-	"assa.com/put.pixel/lib/ogl"
-	"assa.com/put.pixel/src/characters/utf8"
+	"fmt"
 	"math"
 	"time"
+
+	"assa.com/put.pixel/lib/ogl"
+	"assa.com/put.pixel/src/characters/utf8"
 )
 
 const INVISIBLE_COLOR = 0xffffffff
@@ -28,6 +30,7 @@ type Chr struct {
 	shapeWidth      int
 	shapeHeight     int
 	shapeSize       int
+	lookupTable     []int
 	isVeryFirstShow bool
 }
 
@@ -41,7 +44,7 @@ func (ch *Chr) SetCharacterSize(size int) *Chr {
 	case 14:
 		ch.shape = utf8.GetShape(ch.Ch)
 	default:
-		ch.Scale(size)
+		<-ch.Scale(size)
 	}
 	ch.Size = size
 
@@ -49,17 +52,12 @@ func (ch *Chr) SetCharacterSize(size int) *Chr {
 }
 
 func (ch *Chr) GetCharacterWidth() int {
+	fmt.Println("size:", ch.Size)
 	switch ch.Size {
 	case 14:
 		return utf8.GetShapeWidth()
 	default:
-		if ch.Size > 14 {
-			return utf8.GetShapeWidth() + ch.Size - 14
-		}
-		if ch.Size < 0 {
-			return 3
-		}
-		return utf8.GetShapeWidth() - (14 - ch.Size)
+		return utf8.GetShapeWidth() * ch.Size / 14
 	}
 }
 
@@ -68,13 +66,7 @@ func (ch *Chr) GetCharacterHeight() int {
 	case 14:
 		return utf8.GetShapeHeight()
 	default:
-		if ch.Size > 14 {
-			return utf8.GetShapeHeight() + ch.Size - 14
-		}
-		if ch.Size < 0 {
-			return 5
-		}
-		return utf8.GetShapeHeight() + (14 - ch.Size)
+		return utf8.GetShapeHeight() * ch.Size / 14
 	}
 }
 
@@ -114,6 +106,10 @@ func GetNew(chRune rune, x, y int, color byte) *Chr {
 		}
 		di += ch.shapeWidth
 	}
+	ch.lookupTable = make([]int, ch.shapeHeight)
+	for i := range ch.lookupTable {
+		ch.lookupTable[i] = i * ch.shapeWidth
+	}
 
 	ch.commandsCh = make(chan map[string]interface{}, 0)
 	go func() {
@@ -136,7 +132,7 @@ func GetNew(chRune rune, x, y int, color byte) *Chr {
 			case "scale":
 				data := command["data"].(map[string]interface{})
 				size := data["size"].(int)
-				ch.Scale(size)
+				ch.scale(size)
 				select {
 				case command["done"].(chan bool) <- true:
 				case <-time.After(3 * time.Second):
@@ -395,6 +391,10 @@ func (ch *Chr) draw() {
 		y++
 		di += ch.shapeWidth
 	}
+	//ogl.Line(ch.X, ch.Y, ch.X+ch.shapeWidth, ch.Y, ch.Color, ch.Color, ch.Color)
+	//ogl.Line(ch.X+ch.shapeWidth, ch.Y, ch.X+ch.shapeWidth, ch.Y+ch.shapeHeight, ch.Color, ch.Color, ch.Color)
+	//ogl.Line(ch.X+ch.shapeWidth, ch.Y+ch.shapeHeight, ch.X, ch.Y+ch.shapeHeight, ch.Color, ch.Color, ch.Color)
+	//ogl.Line(ch.X, ch.Y+ch.shapeHeight, ch.X, ch.Y, ch.Color, ch.Color, ch.Color)
 }
 
 func (ch *Chr) scale(size int) {
@@ -411,10 +411,14 @@ func (ch *Chr) scale(size int) {
 			di += ch.shapeWidth
 		}
 		ch.shapeSize = ch.shapeHeight * ch.shapeWidth
+		ch.lookupTable = make([]int, ch.shapeHeight)
+		for i := range ch.lookupTable {
+			ch.lookupTable[i] = i * ch.shapeWidth
+		}
 	}()
 	original := utf8.GetShape(ch.Ch)
-	ow := ch.GetCharacterWidth()
-	oh := ch.GetCharacterHeight()
+	ow := ch.shapeWidth
+	oh := ch.shapeHeight
 	ch.Size = size
 	nw := ch.GetCharacterWidth()
 	nh := ch.GetCharacterHeight()
@@ -429,17 +433,27 @@ func (ch *Chr) scale(size int) {
 			for i := 0; i < nw; i++ {
 				y := int(math.Ceil(float64(j) / kh))
 				x := int(math.Ceil(float64(i) / kw))
+				//fmt.Println("y:", y, "x:", x)
 				if x >= ow {
 					x = ow - 1
 				}
 				if y >= oh {
 					y = oh - 1
 				}
+				//fmt.Println("new idx:", dj+i, "old idx:", y*ow+x)
 
 				resized[dj+i] = original[y*ow+x]
 			}
 			dj += nw
 		}
+		//dj = 0
+		//for j := 0; j < nh; j++ {
+		//	for i := 0; i < nw; i++ {
+		//		fmt.Print(resized[dj+i])
+		//	}
+		//	fmt.Println("")
+		//	dj += nw
+		//}
 		ch.shape = resized
 		return
 	}
@@ -475,7 +489,7 @@ func (ch *Chr) prevContains(x, y int) (uint32, bool) {
 		return INVISIBLE_COLOR, false
 	}
 
-	e := ch.prev[i+j*ch.shapeWidth]
+	e := ch.prev[i+ch.lookupTable[j]]
 	if e == INVISIBLE_COLOR {
 		return INVISIBLE_COLOR, false
 	}
@@ -492,5 +506,5 @@ func (ch *Chr) curNotContainsOrInvisible(x, y int) bool {
 		return false
 	}
 
-	return ch.shape[i+j*ch.shapeWidth] == 0
+	return ch.shape[i+ch.lookupTable[j]] == 0
 }

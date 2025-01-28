@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"github.com/go-gl/gl/v2.1/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
-	"strconv"
-
 	"log"
 )
 
@@ -171,42 +169,6 @@ func GetPixelUnsafe(x, y int) uint32 {
 	i := lookupTable[y] + x<<1 + x
 
 	return uint32(pixelArr[i]) + uint32(pixelArr[i+1])<<8 + uint32(pixelArr[i+2])<<16
-}
-
-func printBitsUint32(b uint32) string {
-	// to binary representation
-	str := strconv.FormatInt(int64(b), 2)
-	// with leading zeros
-	delta := 32 - len(str)
-	for i := 0; i < delta; i++ {
-		str = "0" + str
-	}
-	// from string to byte array
-	chunk := make([]byte, 0)
-	for _, ds := range str {
-		d, _ := strconv.Atoi(string(ds))
-		chunk = append(chunk, byte(d))
-	}
-
-	return fmt.Sprint(chunk)
-}
-
-func printBits(b byte) string {
-	// to binary representation
-	str := strconv.FormatInt(int64(b), 2)
-	// with leading zeros
-	delta := 8 - len(str)
-	for i := 0; i < delta; i++ {
-		str = "0" + str
-	}
-	// from string to byte array
-	chunk := make([]byte, 0)
-	for _, ds := range str {
-		d, _ := strconv.Atoi(string(ds))
-		chunk = append(chunk, byte(d))
-	}
-
-	return fmt.Sprint(chunk)
 }
 
 func GetWindowWidth() int {

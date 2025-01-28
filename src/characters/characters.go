@@ -9,13 +9,7 @@ func GetCharacterWidth(size int) int {
 	case 14:
 		return utf8.GetShapeWidth()
 	default:
-		if size > 14 {
-			return utf8.GetShapeWidth() + size - 14
-		}
-		if size < 0 {
-			return 3
-		}
-		return utf8.GetShapeWidth() - (14 - size)
+		return utf8.GetShapeWidth() * size / 14
 	}
 }
 
@@ -24,22 +18,16 @@ func GetCharacterHeight(size int) int {
 	case 14:
 		return utf8.GetShapeHeight()
 	default:
-		if size > 14 {
-			return utf8.GetShapeHeight() + size - 14
-		}
-		if size < 0 {
-			return 5
-		}
-		return utf8.GetShapeHeight() - (14 - size)
+		return utf8.GetShapeHeight() * size / 14
 	}
 }
 
 func GetSpaceSizeBtwCharacters(size int) int {
-	return GetCharacterWidth(size) / 2
+	return 1
 }
 
 func GetLineSpaceSize(size int) int {
-	return GetCharacterWidth(size) / 6
+	return 2
 }
 
 func AddText(text string, x, y int, fontSize int, color int) {
