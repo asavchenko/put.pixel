@@ -67,13 +67,13 @@ func main() {
 
 	Where can I get some?
 	There are many variations of passages of Lorem Ipsum available, but the majority have suffered alteration in some form, by injected humour, or randomised words which don't look even slightly believable. If you are going to use a passage of Lorem Ipsum, you need to be sure there isn't anything embarrassing hidden in the middle of text. All the Lorem Ipsum generators on the Internet tend to repeat predefined chunks as necessary, making this the first true generator on the Internet. It uses a dictionary of over 200 Latin words, combined with a handful of model sentence structures, to generate Lorem Ipsum which looks reasonable. The generated Lorem Ipsum is therefore always free from repetition, injected humour, or non-characteristic words etc.`
-	//text = "A"
+	//text = "`"
 	//text = "It works!"
 	//text := "Я родился!"
 	w := ogl.GetWindowWidth()
 	h := ogl.GetWindowHeight()
 	color := byte(0)
-	fontSize := 12
+	fontSize := 9
 	textHeight := characters.GetCharacterHeight(fontSize) + characters.GetLineSpaceSize(fontSize)
 	//numChInRow := w/chWidth + 1
 	//numColumns := h/textHeight + 1
@@ -110,7 +110,7 @@ func main() {
 		ch := characters.GetNew(r, x, y, color).SetCharacterSize(fontSize)
 		chrs = append(chrs, ch)
 		isNewLine = false
-		x += ch.GetWidth()
+		x += ch.GetWidth() + ch.GetSpaceSizeBtwCharacters()
 
 	}
 	numChrs := len(chrs)
@@ -128,7 +128,7 @@ func main() {
 		if ogl.IsExit() {
 			break
 		}
-		//start := time.Now()
+		start := time.Now()
 		ogl.Draw(func() {
 			if isInit {
 				ogl.FillScreen(200)
@@ -144,26 +144,14 @@ func main() {
 				} else {
 					chrs[i].MoveUnsafe(0, dy)
 				}
-				chrs[i].ShowUnsafe()
-				chrs[i].HideUnsafe()
 			}
 
 			ogl.SwapBuffers()
-			//defer timer("inside draw")()
-			//ogl.ClearScreen()
-			//for i := 0; i < numChrs; i++ {
-			//	_, y := chrs[i].GetPosition()
-			//	if y+chrs[i].GetMaxCharacterHeight() < 0 {
-			//		chrs[i].Move(0, ogl.GetWindowHeight()+2*chrs[i].GetHeight())
-			//	} else {
-			//		chrs[i].Move(0, dy)
-			//	}
-			//}
 		})
-		//d := 29*time.Millisecond - time.Since(start)
-		//if d > 0 {
-		//	time.Sleep(d)
-		//}
+		d := 30*time.Millisecond - time.Since(start)
+		if d > 0 {
+			time.Sleep(d)
+		}
 	}
 }
 

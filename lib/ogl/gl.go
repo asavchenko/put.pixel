@@ -17,9 +17,9 @@ const (
 	Ym     = height - 1
 )
 
-//var pixelArr *[width * height * 3]byte
+var pixelArr *[width * height * 3]byte
 
-var pixelArr []byte
+// var pixelArr []byte
 var window *glfw.Window
 var buffers [1]uint32
 var index int
@@ -38,7 +38,7 @@ func init() {
 	for i := 0; i < height; i++ {
 		lookupTable[i] = i * width * 3
 	}
-	pixelArr = make([]byte, width*height*3)
+	//pixelArr = make([]byte, width*height*3)
 }
 
 func Init(fullScreen bool) {
@@ -48,7 +48,8 @@ func Init(fullScreen bool) {
 	glfw.WindowHint(glfw.Resizable, glfw.False)
 	glfw.WindowHint(glfw.ContextVersionMajor, 2)
 	glfw.WindowHint(glfw.ContextVersionMinor, 1)
-	glfw.WindowHint(glfw.DoubleBuffer, glfw.True)
+	//glfw.WindowHint(glfw.DoubleBuffer, glfw.True)
+	glfw.WindowHint(glfw.DoubleBuffer, glfw.False)
 	{
 		var err error
 		window, err = glfw.CreateWindow(width, height, "Title", nil, nil)
@@ -70,7 +71,7 @@ func Init(fullScreen bool) {
 	glfw.SwapInterval(1)
 
 	gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, buffers[0])
-	gl.BufferData(gl.PIXEL_UNPACK_BUFFER, width*height*3, nil, gl.DYNAMIC_DRAW)
+	gl.BufferData(gl.PIXEL_UNPACK_BUFFER, width*height*3, nil, gl.STATIC_DRAW)
 
 	lastX, lastY = window.GetPos()
 	lastWidth, lastHeight = window.GetSize()
@@ -198,11 +199,11 @@ func draw(window *glfw.Window, run func()) {
 	if !gl.UnmapBuffer(gl.PIXEL_UNPACK_BUFFER) {
 		return
 	}
-	//pixelArr = (*[width * height * 3]byte)(pboPtr)
+	pixelArr = (*[width * height * 3]byte)(pboPtr)
 	//pixelArr = unsafe.Slice((*byte)(pboPtr), width*height*3)
 	//pixelArr = (*[width * height * 3]byte)(pboPtr)[:width*height*3]
 
-	copy((*[width * height * 3]byte)(pboPtr)[:width*height*3], pixelArr)
+	//copy((*[width * height * 3]byte)(pboPtr)[:width*height*3], pixelArr)
 	run()
 
 	gl.DrawPixels(width, height, gl.RGB, gl.UNSIGNED_BYTE, nil)
@@ -217,8 +218,8 @@ func GetCurrentIndex() int {
 }
 
 func SwapBuffers() {
-	gl.Finish()
-	window.SwapBuffers()
+	gl.Flush()
+	//window.SwapBuffers()
 	//gl.Flush()
 }
 
