@@ -19,8 +19,6 @@ type Chr struct {
 	PY              int
 	Color           byte
 	shape           []byte
-	prev            []uint32
-	cur             []uint32
 	commandsCh      chan map[string]interface{}
 	wH              int
 	wW              int
@@ -36,7 +34,6 @@ func (ch *Chr) GetCharacterSize() int {
 }
 
 func (ch *Chr) SetCharacterSize(size int) *Chr {
-	ch.hideIgnoreVisible()
 	switch size {
 	case 14:
 		ch.shape = ch.trim(utf8.GetShape(ch.Ch), utf8.WIDTH, utf8.HEIGHT)
@@ -87,17 +84,7 @@ func GetNew(chRune rune, x, y int, color byte) *Chr {
 	ch.Color = color
 	ch.Size = 14
 	ch.shapeSize = ch.shapeHeight * ch.shapeWidth
-	ch.prev = make([]uint32, ch.shapeHeight*ch.shapeWidth)
-	ch.cur = make([]uint32, ch.shapeHeight*ch.shapeWidth)
-	di := 0
-	for i := 0; i < ch.shapeHeight; i++ {
-		for j := 0; j < ch.shapeWidth; j++ {
-			dij := di + j
-			ch.cur[dij] = INVISIBLE_COLOR
-			ch.prev[dij] = INVISIBLE_COLOR
-		}
-		di += ch.shapeWidth
-	}
+
 	ch.lookupTable = make([]int, ch.shapeHeight)
 	for i := range ch.lookupTable {
 		ch.lookupTable[i] = i * ch.shapeWidth
@@ -141,28 +128,6 @@ func (ch *Chr) MoveUnsafe(dx, dy int) {
 	ch.X += dx
 	ch.Y += dy
 	ch.ShowUnsafe()
-	ch.HideUnsafe()
-}
-
-func (ch *Chr) HideUnsafe() {
-	if ch.PX == ch.X && ch.PY == ch.Y {
-		return
-	}
-	x := ch.PX
-	y := ch.PY
-	di := 0
-	for i := 0; i < ch.shapeHeight; i++ {
-		for j := 0; j < ch.shapeWidth; j++ {
-			dij := di + j
-			if ch.prev[dij] != INVISIBLE_COLOR && ch.curNotContainsOrInvisible(x, y) {
-				ogl.UnsafePutPixelRGB(x, y, byte(ch.prev[dij]&0x000000FF), byte((ch.prev[dij]&0x0000FF00)>>8), byte((ch.prev[dij]&0x00FF0000)>>16))
-			}
-			x++
-		}
-		x = ch.PX
-		y++
-		di += ch.shapeWidth
-	}
 }
 
 func (ch *Chr) contains(x, y int) bool {
@@ -170,42 +135,8 @@ func (ch *Chr) contains(x, y int) bool {
 }
 
 func (ch *Chr) ShowUnsafe() {
-	for i, e := range ch.cur {
-		ch.prev[i] = e
-	}
 	if ch.IsInvisible() {
-		di := 0
-		for i := 0; i < ch.shapeHeight; i++ {
-			for j := 0; j < ch.shapeWidth; j++ {
-				ch.cur[di+j] = INVISIBLE_COLOR
-			}
-			di += ch.shapeWidth
-		}
-
 		return
-	}
-
-	x := ch.X
-	y := ch.Y
-	di := 0
-	for i := 0; i < ch.shapeHeight; i++ {
-		for j := 0; j < ch.shapeWidth; j++ {
-			dij := di + j
-			if ch.isPixelVisible(x, y) {
-				rgb, contains := ch.prevContains(x, y)
-				if contains {
-					ch.cur[dij] = rgb
-				} else {
-					ch.cur[dij] = ogl.GetPixelUnsafe(x, y)
-				}
-			} else {
-				ch.cur[dij] = INVISIBLE_COLOR
-			}
-			x++
-		}
-		x = ch.X
-		y++
-		di += ch.shapeWidth
 	}
 
 	ch.draw()
@@ -230,24 +161,6 @@ func (ch *Chr) draw() {
 	//ogl.Line(ch.X+ch.shapeWidth, ch.Y, ch.X+ch.shapeWidth, ch.Y+ch.shapeHeight, ch.Color, ch.Color, ch.Color)
 	//ogl.Line(ch.X+ch.shapeWidth, ch.Y+ch.shapeHeight, ch.X, ch.Y+ch.shapeHeight, ch.Color, ch.Color, ch.Color)
 	//ogl.Line(ch.X, ch.Y+ch.shapeHeight, ch.X, ch.Y, ch.Color, ch.Color, ch.Color)
-}
-
-func (ch *Chr) prevContains(x, y int) (uint32, bool) {
-	i := x - ch.PX
-	if i < 0 || i >= ch.shapeWidth {
-		return INVISIBLE_COLOR, false
-	}
-	j := y - ch.PY
-	if j < 0 || j >= ch.shapeHeight {
-		return INVISIBLE_COLOR, false
-	}
-
-	e := ch.prev[i+ch.lookupTable[j]]
-	if e == INVISIBLE_COLOR {
-		return INVISIBLE_COLOR, false
-	}
-
-	return e, true
 }
 
 func (ch *Chr) curNotContainsOrInvisible(x, y int) bool {
@@ -320,17 +233,6 @@ func (ch *Chr) trim(shape []byte, w, h int) []byte {
 
 func (ch *Chr) scale(size int) {
 	defer func() {
-		ch.prev = make([]uint32, ch.shapeHeight*ch.shapeWidth)
-		ch.cur = make([]uint32, ch.shapeHeight*ch.shapeWidth)
-		di := 0
-		for i := 0; i < ch.shapeHeight; i++ {
-			for j := 0; j < ch.shapeWidth; j++ {
-				dij := di + j
-				ch.cur[dij] = INVISIBLE_COLOR
-				ch.prev[dij] = INVISIBLE_COLOR
-			}
-			di += ch.shapeWidth
-		}
 		ch.shapeSize = ch.shapeHeight * ch.shapeWidth
 		ch.lookupTable = make([]int, ch.shapeHeight)
 		for i := range ch.lookupTable {
@@ -392,85 +294,11 @@ func (ch *Chr) scale(size int) {
 
 // /////////////////////////////////////////////////////
 func (ch *Chr) show() {
-	for i, e := range ch.cur {
-		ch.prev[i] = e
-	}
 	if ch.IsInvisible() {
-		di := 0
-		for i := 0; i < ch.shapeHeight; i++ {
-			for j := 0; j < ch.shapeWidth; j++ {
-				ch.cur[di+j] = INVISIBLE_COLOR
-			}
-			di += ch.shapeWidth
-		}
-
 		return
-	}
-
-	x := ch.X
-	y := ch.Y
-	di := 0
-	for i := 0; i < ch.shapeHeight; i++ {
-		for j := 0; j < ch.shapeWidth; j++ {
-			dij := di + j
-			if ch.isPixelVisible(x, y) {
-				rgb, contains := ch.prevContains(x, y)
-				if contains {
-					ch.cur[dij] = rgb
-				} else {
-					ch.cur[dij] = ogl.GetPixelUnsafe(x, y)
-				}
-			} else {
-				ch.cur[dij] = INVISIBLE_COLOR
-			}
-			x++
-		}
-		x = ch.X
-		y++
-		di += ch.shapeWidth
 	}
 
 	ch.draw()
-}
-
-func (ch *Chr) hide() {
-	if ch.PX == ch.X && ch.PY == ch.Y {
-		return
-	}
-
-	x := ch.PX
-	y := ch.PY
-	di := 0
-	for i := 0; i < ch.shapeHeight; i++ {
-		for j := 0; j < ch.shapeWidth; j++ {
-			dij := di + j
-			if ch.prev[dij] != INVISIBLE_COLOR && ch.curNotContainsOrInvisible(x, y) {
-				ogl.UnsafePutPixelRGB(x, y, byte(ch.prev[dij]&0x000000FF), byte((ch.prev[dij]&0x0000FF00)>>8), byte((ch.prev[dij]&0x00FF0000)>>16))
-			}
-			x++
-		}
-		x = ch.PX
-		y++
-		di += ch.shapeWidth
-	}
-}
-
-func (ch *Chr) hideIgnoreVisible() {
-	x := ch.PX
-	y := ch.PY
-	di := 0
-	for i := 0; i < ch.shapeHeight; i++ {
-		for j := 0; j < ch.shapeWidth; j++ {
-			dij := di + j
-			if ch.prev[dij] != INVISIBLE_COLOR {
-				ogl.UnsafePutPixelRGB(x, y, byte(ch.prev[dij]&0x000000FF), byte((ch.prev[dij]&0x0000FF00)>>8), byte((ch.prev[dij]&0x00FF0000)>>16))
-			}
-			x++
-		}
-		x = ch.PX
-		y++
-		di += ch.shapeWidth
-	}
 }
 
 func (ch *Chr) GetWidth() int {
@@ -546,5 +374,4 @@ func (ch *Chr) move(dx, dy int) {
 	ch.X += dx
 	ch.Y += dy
 	ch.show()
-	ch.hide()
 }
