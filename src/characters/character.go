@@ -25,8 +25,6 @@ type Chr struct {
 	commandsCh      chan map[string]interface{}
 	wH              int
 	wW              int
-	width           int
-	height          int
 	shapeWidth      int
 	shapeHeight     int
 	shapeSize       int
@@ -42,7 +40,7 @@ func (ch *Chr) SetCharacterSize(size int) *Chr {
 	ch.hideIgnoreVisible()
 	switch size {
 	case 14:
-		ch.shape = utf8.GetShape(ch.Ch)
+		ch.shape = ch.trim(utf8.GetShape(ch.Ch), utf8.WIDTH, utf8.HEIGHT)
 	default:
 		<-ch.Scale(size)
 	}
@@ -51,7 +49,7 @@ func (ch *Chr) SetCharacterSize(size int) *Chr {
 	return ch
 }
 
-func (ch *Chr) GetCharacterWidth() int {
+func (ch *Chr) GetMaxCharacterWidth() int {
 	fmt.Println("size:", ch.Size)
 	switch ch.Size {
 	case 14:
@@ -61,7 +59,7 @@ func (ch *Chr) GetCharacterWidth() int {
 	}
 }
 
-func (ch *Chr) GetCharacterHeight() int {
+func (ch *Chr) GetMaxCharacterHeight() int {
 	switch ch.Size {
 	case 14:
 		return utf8.GetShapeHeight()
@@ -71,11 +69,11 @@ func (ch *Chr) GetCharacterHeight() int {
 }
 
 func (ch *Chr) GetSpaceSizeBtwCharacters() int {
-	return ch.GetCharacterWidth() / 9
+	return 1
 }
 
 func (ch *Chr) GetLineSpaceSize() int {
-	return ch.GetCharacterWidth() / 6
+	return ch.GetMaxCharacterHeight() + 1
 }
 
 func GetNew(chRune rune, x, y int, color byte) *Chr {
@@ -83,17 +81,14 @@ func GetNew(chRune rune, x, y int, color byte) *Chr {
 	ch.Ch = chRune
 	ch.wH = ogl.GetWindowHeight()
 	ch.wW = ogl.GetWindowWidth()
-	ch.shape = utf8.GetShape(chRune)
-	ch.shapeHeight = utf8.HEIGHT
-	ch.shapeWidth = utf8.WIDTH
+	ch.shape = ch.trim(utf8.GetShape(chRune), utf8.WIDTH, utf8.HEIGHT)
+
 	ch.X = x
 	ch.Y = y
 	ch.PX = x
 	ch.PY = y
 	ch.Color = color
 	ch.Size = 14
-	ch.width = ch.GetCharacterWidth()
-	ch.height = ch.GetCharacterHeight()
 	ch.shapeSize = ch.shapeHeight * ch.shapeWidth
 	ch.prev = make([]uint32, ch.shapeHeight*ch.shapeWidth)
 	ch.cur = make([]uint32, ch.shapeHeight*ch.shapeWidth)
@@ -144,11 +139,11 @@ func GetNew(chRune rune, x, y int, color byte) *Chr {
 }
 
 func (ch *Chr) GetWidth() int {
-	return ch.width
+	return ch.shapeWidth + 1
 }
 
 func (ch *Chr) GetHeight() int {
-	return ch.height
+	return ch.shapeHeight + 1
 }
 
 func (ch *Chr) IsInvisible() bool {
@@ -417,11 +412,11 @@ func (ch *Chr) scale(size int) {
 		}
 	}()
 	original := utf8.GetShape(ch.Ch)
-	ow := ch.shapeWidth
-	oh := ch.shapeHeight
+	ow := utf8.WIDTH
+	oh := utf8.HEIGHT
 	ch.Size = size
-	nw := ch.GetCharacterWidth()
-	nh := ch.GetCharacterHeight()
+	nw := ow * size / 14
+	nh := oh * size / 14
 	kw := float64(nw) / float64(ow)
 	kh := float64(nh) / float64(oh)
 	ch.shapeWidth = nw
@@ -454,7 +449,7 @@ func (ch *Chr) scale(size int) {
 		//	fmt.Println("")
 		//	dj += nw
 		//}
-		ch.shape = resized
+		ch.shape = ch.trim(resized, nw, nh)
 		return
 	}
 	dj := 0
@@ -476,7 +471,7 @@ func (ch *Chr) scale(size int) {
 		}
 		dj += ow
 	}
-	ch.shape = resized
+	ch.shape = ch.trim(resized, nw, nh)
 }
 
 func (ch *Chr) prevContains(x, y int) (uint32, bool) {
@@ -507,4 +502,59 @@ func (ch *Chr) curNotContainsOrInvisible(x, y int) bool {
 	}
 
 	return ch.shape[i+ch.lookupTable[j]] == 0
+}
+
+func (ch *Chr) trim(shape []byte, w, h int) []byte {
+	li := 0     // left idx
+	ri := w - 1 // right idx
+	for i := 0; i < w; i++ {
+		dj := 0
+		isEmpty := true
+		for j := 0; j < h; j++ {
+			if shape[dj+i] != 0 {
+				isEmpty = false
+				break
+			}
+			dj += w
+		}
+		if isEmpty {
+			li++
+			continue
+		}
+		break
+	}
+	for i := w - 1; i > li; i-- {
+		dj := 0
+		isEmpty := true
+		for j := 0; j < h; j++ {
+			if shape[dj+i] != 0 {
+				isEmpty = false
+				break
+			}
+			dj += w
+		}
+		if isEmpty {
+			ri--
+			continue
+		}
+		break
+	}
+	nw := ri - li + 1
+	if nw < 1 {
+		li = 0
+		ri = w/2 - 1
+		nw = ri - li + 1
+	}
+	trimmed := make([]byte, nw*h)
+	for i := li; i <= ri; i++ {
+		dj := 0
+		for j := 0; j < h; j++ {
+			trimmed[i+dj-li] = shape[j*w+i]
+			dj += nw
+		}
+	}
+	ch.shapeHeight = h
+	ch.shapeWidth = nw
+
+	return trimmed
 }

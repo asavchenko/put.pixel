@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"runtime"
-	"runtime/pprof"
 	"strings"
 	"syscall"
 	"time"
@@ -23,13 +22,13 @@ func init() {
 }
 
 func main() {
-	f, err := os.Create("myprogram.prof") // then go tool pprof -http=:8080 myprogram.prof
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	pprof.StartCPUProfile(f)
-	defer pprof.StopCPUProfile()
+	//f, err := os.Create("myprogram.prof") // then go tool pprof -http=:8080 myprogram.prof
+	//if err != nil {
+	//	fmt.Println(err)
+	//	return
+	//}
+	//pprof.StartCPUProfile(f)
+	//defer pprof.StopCPUProfile()
 
 	ogl.Init(false)
 	defer ogl.Close()
@@ -74,9 +73,8 @@ func main() {
 	w := ogl.GetWindowWidth()
 	h := ogl.GetWindowHeight()
 	color := byte(0)
-	fontSize := 14
+	fontSize := 12
 	textHeight := characters.GetCharacterHeight(fontSize) + characters.GetLineSpaceSize(fontSize)
-	chWidth := characters.GetCharacterWidth(fontSize) + characters.GetSpaceSizeBtwCharacters(fontSize)
 	//numChInRow := w/chWidth + 1
 	//numColumns := h/textHeight + 1
 	y := h
@@ -109,9 +107,10 @@ func main() {
 		if x > w {
 			continue
 		}
-		chrs = append(chrs, characters.GetNew(r, x, y, color).SetCharacterSize(fontSize))
+		ch := characters.GetNew(r, x, y, color).SetCharacterSize(fontSize)
+		chrs = append(chrs, ch)
 		isNewLine = false
-		x += chWidth
+		x += ch.GetWidth()
 
 	}
 	numChrs := len(chrs)
@@ -129,6 +128,7 @@ func main() {
 		if ogl.IsExit() {
 			break
 		}
+		//start := time.Now()
 		ogl.Draw(func() {
 			if isInit {
 				ogl.FillScreen(200)
@@ -136,10 +136,10 @@ func main() {
 				isInit = false
 				return
 			}
-			defer timer("inside draw")()
+			//defer timer("inside draw")()
 			for i := 0; i < numChrs; i++ {
 				y := chrs[i].Y
-				if y+chrs[i].GetCharacterHeight() < 0 {
+				if y+chrs[i].GetMaxCharacterHeight() < 0 {
 					chrs[i].MoveUnsafe(0, ogl.GetWindowHeight()+2*chrs[i].GetHeight())
 				} else {
 					chrs[i].MoveUnsafe(0, dy)
@@ -148,17 +148,22 @@ func main() {
 				chrs[i].HideUnsafe()
 			}
 
+			ogl.SwapBuffers()
 			//defer timer("inside draw")()
 			//ogl.ClearScreen()
 			//for i := 0; i < numChrs; i++ {
 			//	_, y := chrs[i].GetPosition()
-			//	if y+chrs[i].GetCharacterHeight() < 0 {
+			//	if y+chrs[i].GetMaxCharacterHeight() < 0 {
 			//		chrs[i].Move(0, ogl.GetWindowHeight()+2*chrs[i].GetHeight())
 			//	} else {
 			//		chrs[i].Move(0, dy)
 			//	}
 			//}
 		})
+		//d := 29*time.Millisecond - time.Since(start)
+		//if d > 0 {
+		//	time.Sleep(d)
+		//}
 	}
 }
 

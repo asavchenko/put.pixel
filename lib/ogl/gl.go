@@ -48,6 +48,7 @@ func Init(fullScreen bool) {
 	glfw.WindowHint(glfw.Resizable, glfw.False)
 	glfw.WindowHint(glfw.ContextVersionMajor, 2)
 	glfw.WindowHint(glfw.ContextVersionMinor, 1)
+	glfw.WindowHint(glfw.DoubleBuffer, glfw.True)
 	{
 		var err error
 		window, err = glfw.CreateWindow(width, height, "Title", nil, nil)
@@ -208,7 +209,7 @@ func draw(window *glfw.Window, run func()) {
 
 	glfw.PollEvents()
 	processInput(window)
-	SwapBuffers()
+	//SwapBuffers()
 }
 
 func GetCurrentIndex() int {
@@ -216,7 +217,9 @@ func GetCurrentIndex() int {
 }
 
 func SwapBuffers() {
+	gl.Finish()
 	window.SwapBuffers()
+	//gl.Flush()
 }
 
 func ClearScreen() {
