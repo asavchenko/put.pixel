@@ -218,7 +218,8 @@ func GetCurrentIndex() int {
 }
 
 func SwapBuffers() {
-	gl.Flush()
+	//gl.Flush()
+	gl.Finish()
 	//window.SwapBuffers()
 	//gl.Flush()
 }

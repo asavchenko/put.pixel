@@ -8,6 +8,8 @@ import (
 	"syscall"
 	"time"
 
+	"periph.io/x/host/v3/cpu"
+
 	"assa.com/put.pixel/lib/ogl"
 	"assa.com/put.pixel/src/characters"
 )
@@ -73,7 +75,7 @@ func main() {
 	w := ogl.GetWindowWidth()
 	h := ogl.GetWindowHeight()
 	color := byte(0)
-	fontSize := 9
+	fontSize := 12
 	textHeight := characters.GetCharacterHeight(fontSize) + characters.GetLineSpaceSize(fontSize)
 	//numChInRow := w/chWidth + 1
 	//numColumns := h/textHeight + 1
@@ -122,13 +124,12 @@ func main() {
 			dy = 0
 		}
 	})
-
+	start := time.Now()
 	isInit := true
 	for {
 		if ogl.IsExit() {
 			break
 		}
-		start := time.Now()
 		ogl.Draw(func() {
 			if isInit {
 				ogl.FillScreen(200)
@@ -136,6 +137,7 @@ func main() {
 				isInit = false
 				return
 			}
+
 			//defer timer("inside draw")()
 			for i := 0; i < numChrs; i++ {
 				y := chrs[i].Y
@@ -145,13 +147,13 @@ func main() {
 					chrs[i].MoveUnsafe(0, dy)
 				}
 			}
-
-			ogl.SwapBuffers()
+			d := 30*time.Millisecond - time.Since(start)
+			if d > 0 {
+				cpu.Nanospin(d)
+			}
 		})
-		d := 30*time.Millisecond - time.Since(start)
-		if d > 0 {
-			time.Sleep(d)
-		}
+		ogl.SwapBuffers()
+		start = time.Now()
 	}
 }
 
