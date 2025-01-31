@@ -1,7 +1,6 @@
 package utf8
 
 import (
-	"fmt"
 	"math"
 	"time"
 
@@ -84,6 +83,10 @@ func init() {
 	}()
 }
 
+func GetAvailableCharCodes() []uint32 {
+	return font.GetAvailableCharCodes()
+}
+
 func GetShapeWidth() int {
 	return WIDTH
 }
@@ -104,7 +107,7 @@ func GetEmptyShape() []byte {
 }
 
 func GetShape(ch rune) []byte {
-	fmt.Println(string(ch), ch)
+	//fmt.Println(string(ch), ch)
 	out := make(chan interface{}, 1)
 	select {
 	case ctrlShapeCh <- map[string]interface{}{

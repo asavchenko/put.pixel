@@ -1,7 +1,9 @@
 package main
 
 import (
+	"assa.com/put.pixel/lib/mlib"
 	"fmt"
+	"math"
 	"os"
 	"runtime"
 	"strings"
@@ -35,93 +37,35 @@ func main() {
 	ogl.OnKeypress(ogl.KEY_ESC, func() {
 		ogl.CloseWindow()
 	})
-	dy := -1
 
-	text := `What is Lorem Ipsum?
-	Lorem Ipsum is simply dummy text of the printing and typesetting industry.
-	Lorem Ipsum has been the industry's standard dummy text ever since the 1500s,
-	when an unknown printer took a galley of type and scrambled it to make a type specimen book. 
-	It has survived not only five centuries, but also the leap into electronic typesetting, 
-	remaining essentially unchanged. It was popularised in the 1960s with the release of 
-	Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker 
-	including versions of Lorem Ipsum.
-
-	Why do we use it?
-	It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout.
-	The point of using Lorem Ipsum is that it has a more-or-less normal distribution of letters, 
-	as opposed to using 'Content here, content here', making it look like readable English. 
-	Many desktop publishing packages and web page editors now use Lorem Ipsum as their default model text, 
-	and a search for 'lorem ipsum' will uncover many web sites still in their infancy. 
-	Various versions have evolved over the years, sometimes by accident, 
-	sometimes on purpose (injected humour and the like).
-
-	Where does it come from?
-	Contrary to popular belief, Lorem Ipsum is not simply random text. 
-	It has roots in a piece of classical Latin literature from 45 BC,
-	making it over 2000 years old. Richard McClintock, a Latin professor at Hampden-Sydney College in Virginia, 
-	looked up one of the more obscure Latin words, consectetur, from a Lorem Ipsum passage, 
-	and going through the cites of the word in classical literature, discovered the undoubtable source. 
-	Lorem Ipsum comes from sections 1.10.32 and 1.10.33 of \"de Finibus Bonorum et Malorum\" (The Extremes of Good and Evil) by Cicero, written in 45 BC. This book is a treatise on the theory of ethics, very popular during the Renaissance. The first line of Lorem Ipsum, \"Lorem ipsum dolor sit amet..\", comes from a line in section 1.10.32.
-
-	The standard chunk of Lorem Ipsum used since the 1500s is reproduced below for those interested. Sections 1.10.32 and 1.10.33 from \"de Finibus Bonorum et Malorum\" by Cicero are also reproduced in their exact original form, accompanied by English versions from the 1914 translation by H. Rackham.
-
-	Where can I get some?
-	There are many variations of passages of Lorem Ipsum available, but the majority have suffered alteration in some form, by injected humour, or randomised words which don't look even slightly believable. If you are going to use a passage of Lorem Ipsum, you need to be sure there isn't anything embarrassing hidden in the middle of text. All the Lorem Ipsum generators on the Internet tend to repeat predefined chunks as necessary, making this the first true generator on the Internet. It uses a dictionary of over 200 Latin words, combined with a handful of model sentence structures, to generate Lorem Ipsum which looks reasonable. The generated Lorem Ipsum is therefore always free from repetition, injected humour, or non-characteristic words etc.`
-	//text = "`"
-	//text = "It works!"
-	//text := "Я родился!"
 	w := ogl.GetWindowWidth()
 	h := ogl.GetWindowHeight()
-	color := byte(240)
-	fontSize := 12
-	textHeight := characters.GetCharacterHeight(fontSize) + characters.GetLineSpaceSize(fontSize)
-	//numChInRow := w/chWidth + 1
-	//numColumns := h/textHeight + 1
-	y := h
-	x := 0
-	i := 0
-	isNewLine := true
-	for {
-		if i > len([]rune(text))-1 {
-			break
-		}
-		r := []rune(text)[i]
-		if int(r) == 10 {
-			y -= textHeight
-			if y < 0 {
-				break
+	fontSize := 18
+	codes := characters.GetAvailableCharCodes()
+	x := -9
+	for k := 1; k < 3; k++ {
+		for j := 0; j < 9; j++ {
+			for i := 0; i < 54; i++ {
+				r := codes[mlib.GetRandomBtw(0, len(codes)-1)]
+				size := mlib.GetRandomBtw(9, fontSize)
+				ch := characters.GetNew(rune(r), x, h+mlib.GetRandomBtw(0, h*3), getColor(size)).SetCharacterSize(size)
+				ch.SetRotationSpeed(2 * math.Pi / float64(mlib.GetRandomBtw(30, 360)))
+				ch.SetFallingSpeed(getFallingSpeed(size))
+				chrs = append(chrs, ch)
 			}
-			// new line
-			isNewLine = true
-			if int([]rune(text)[i+1]) == 9 {
-				i += 2
-			} else {
-				i += 1
+			x += mlib.GetRandomBtw(k*9, (k+j+1)*9) + mlib.GetRandomBtw(k, 9-j+k) + 9*k + 9*j
+			if x > w {
+				for {
+					if x < w {
+						break
+					}
+					x -= mlib.GetRandomBtw(0, w)
+				}
 			}
-			continue
 		}
-		i += 1
-		if isNewLine {
-			x = 0
-		}
-		if x > w {
-			continue
-		}
-		ch := characters.GetNew(r, x, y, color).SetCharacterSize(fontSize)
-		chrs = append(chrs, ch)
-		isNewLine = false
-		x += ch.GetWidth() + ch.GetSpaceSizeBtwCharacters()
-
 	}
 	numChrs := len(chrs)
-	fmt.Println(numChrs)
-	ogl.OnKeypress(ogl.KEY_SPACE, func() {
-		if dy == 0 {
-			dy -= 1
-		} else {
-			dy = 0
-		}
-	})
+	fmt.Println("num chars:", numChrs)
 	for {
 		if ogl.IsExit() {
 			break
@@ -129,18 +73,82 @@ func main() {
 		ogl.Draw(func() {
 			//defer timer("inside draw")()
 			for i := 0; i < numChrs; i++ {
-				y := chrs[i].Y
+				ch := chrs[i]
+				y := ch.Y
+
+				ch.Run()
 				if y+chrs[i].GetMaxCharacterHeight() < 0 {
-					chrs[i].MoveUnsafe(0, ogl.GetWindowHeight()+2*chrs[i].GetHeight())
-				} else {
-					chrs[i].MoveUnsafe(0, dy)
+					ch.X += mlib.GetRandomBtw(0, 1)
+					if ch.X > w {
+						for {
+							if ch.X < w {
+								break
+							}
+							ch.X -= mlib.GetRandomBtw(9, 18)
+						}
+					}
+					ch.Y = h + ch.GetHeight() + mlib.Rand(h)
 				}
 			}
-
 		})
 	}
 }
 
+func getFallingSpeed(size int) int {
+	switch size - 9 {
+	case 9:
+		return 5
+	case 8:
+		return 4
+	case 7:
+		return 4
+	case 6:
+		return 3
+	case 5:
+		return 3
+	case 4:
+		return 2
+	case 3:
+		return 2
+	case 2:
+		return 2
+	case 1:
+		return 1
+	case 0:
+		return 1
+	}
+
+	fmt.Println("WTF>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+	return 1
+}
+
+func getColor(n int) uint32 {
+	switch n - 9 {
+	case 9:
+		return 0x42826cff
+	case 8:
+		return 0x38705dff
+	case 7:
+		return 0x2f5f4eff
+	case 6:
+		return 0x254e40ff
+	case 5:
+		return 0x1c3e32ff
+	case 4:
+		return 0x142f25ff
+	case 3:
+		return 0x0b2019ff
+	case 2:
+		return 0x05120dff
+	case 1:
+		return 0x010604ff
+	case 0:
+		return 0x000100ff
+	}
+
+	fmt.Println("WTF>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+	return 0x000100ff
+}
 func timer(name string) func() {
 	start := time.Now()
 	return func() {

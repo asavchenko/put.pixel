@@ -32,15 +32,32 @@ func init() {
 	r1 = rand.New(s1)
 }
 
-/**
- *
- */
 func Rand(n int) int {
-	if n <= 0 {
-		n = 1
+	if n < 0 {
+		return -r1.Intn(-n)
+	}
+	if n == 0 {
+		return 0
+	}
+	return r1.Intn(n + 1)
+}
+
+func GetRandomBtw(n1, n2 int) int {
+	if n1 > n2 {
+		n2 = -n1 + n2
+		n1 = n2 + n1
+		n2 = -n2 + n1
 	}
 
-	return r1.Intn(n) + 1
+	res := Rand(n2-n1) + n1
+	if res < n1 {
+		return n1
+	}
+	if res > n2 {
+		return n2
+	}
+
+	return res
 }
 
 /**

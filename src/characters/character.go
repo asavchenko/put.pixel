@@ -1,6 +1,7 @@
 package characters
 
 import (
+	"assa.com/put.pixel/lib/mlib"
 	"math"
 	"time"
 
@@ -11,22 +12,30 @@ import (
 const INVISIBLE_COLOR = 0xffffffff
 
 type Chr struct {
-	Ch              rune
-	Size            int
-	X               int
-	Y               int
-	PX              int
-	PY              int
-	Color           byte
-	shape           []byte
-	commandsCh      chan map[string]interface{}
-	wH              int
-	wW              int
-	shapeWidth      int
-	shapeHeight     int
-	shapeSize       int
-	lookupTable     []int
-	isVeryFirstShow bool
+	Ch            rune
+	a             float64
+	fallingSpeed  int
+	rotationSpeed float64
+	Size          int
+	X             int
+	Y             int
+	PX            int
+	PY            int
+	Color         uint32
+	shape         []byte
+	bitmap        []byte
+	commandsCh    chan map[string]interface{}
+	wH            int
+	wW            int
+	shapeWidth    int
+	shapeHeight   int
+	shapeSize     int
+}
+
+func (ch *Chr) SetChar(chRune rune) {
+	ch.Ch = chRune
+	<-ch.Scale(ch.Size)
+	//ch.generateBitmap()
 }
 
 func (ch *Chr) GetCharacterSize() int {
@@ -71,7 +80,7 @@ func (ch *Chr) GetLineSpaceSize() int {
 	return ch.GetMaxCharacterHeight() + 1
 }
 
-func GetNew(chRune rune, x, y int, color byte) *Chr {
+func GetNew(chRune rune, x, y int, color uint32) *Chr {
 	ch := &Chr{}
 	ch.Ch = chRune
 	ch.wH = ogl.GetWindowHeight()
@@ -84,12 +93,7 @@ func GetNew(chRune rune, x, y int, color byte) *Chr {
 	ch.Color = color
 	ch.Size = 14
 	ch.shapeSize = ch.shapeHeight * ch.shapeWidth
-
-	ch.lookupTable = make([]int, ch.shapeHeight)
-	for i := range ch.lookupTable {
-		ch.lookupTable[i] = i * ch.shapeWidth
-	}
-
+	ch.generateBitmap()
 	ch.commandsCh = make(chan map[string]interface{}, 0)
 	go func() {
 		for command := range ch.commandsCh {
@@ -143,37 +147,25 @@ func (ch *Chr) ShowUnsafe() {
 }
 
 func (ch *Chr) draw() {
-	x := ch.X
-	y := ch.Y
-	di := 0
-	for i := 0; i < ch.shapeHeight; i++ {
-		for j := 0; j < ch.shapeWidth; j++ {
-			if ch.shape[di+j] > 0 {
-				ogl.PutPixelRGB(x, y, ch.Color, ch.Color, ch.Color)
-			}
-			x++
-		}
-		x = ch.X
-		y++
-		di += ch.shapeWidth
-	}
+	ogl.PutByteBitmap(ch.X, ch.Y, ch.shapeWidth*4, ch.shapeHeight, ch.bitmap)
+	//x := ch.X
+	//y := ch.Y
+	//di := 0
+	//for i := 0; i < ch.shapeHeight; i++ {
+	//	for j := 0; j < ch.shapeWidth; j++ {
+	//		if ch.shape[di+j] > 0 {
+	//			ogl.PutPixel(x, y, 200, 200, 200)
+	//		}
+	//		x++
+	//	}
+	//	di += ch.shapeWidth
+	//	x = ch.X
+	//	y++
+	//}
 	//ogl.Line(ch.X, ch.Y, ch.X+ch.shapeWidth, ch.Y, ch.Color, ch.Color, ch.Color)
 	//ogl.Line(ch.X+ch.shapeWidth, ch.Y, ch.X+ch.shapeWidth, ch.Y+ch.shapeHeight, ch.Color, ch.Color, ch.Color)
 	//ogl.Line(ch.X+ch.shapeWidth, ch.Y+ch.shapeHeight, ch.X, ch.Y+ch.shapeHeight, ch.Color, ch.Color, ch.Color)
 	//ogl.Line(ch.X, ch.Y+ch.shapeHeight, ch.X, ch.Y, ch.Color, ch.Color, ch.Color)
-}
-
-func (ch *Chr) curNotContainsOrInvisible(x, y int) bool {
-	i := x - ch.X
-	if i < 0 || i >= ch.shapeWidth {
-		return true
-	}
-	j := y - ch.Y
-	if j < 0 || j >= ch.shapeHeight {
-		return true
-	}
-
-	return ch.shape[i+ch.lookupTable[j]] == 0
 }
 
 func (ch *Chr) trim(shape []byte, w, h int) []byte {
@@ -234,10 +226,7 @@ func (ch *Chr) trim(shape []byte, w, h int) []byte {
 func (ch *Chr) scale(size int) {
 	defer func() {
 		ch.shapeSize = ch.shapeHeight * ch.shapeWidth
-		ch.lookupTable = make([]int, ch.shapeHeight)
-		for i := range ch.lookupTable {
-			ch.lookupTable[i] = i * ch.shapeWidth
-		}
+		ch.generateBitmap()
 	}()
 	original := utf8.GetShape(ch.Ch)
 	ow := utf8.WIDTH
@@ -374,4 +363,74 @@ func (ch *Chr) move(dx, dy int) {
 	ch.X += dx
 	ch.Y += dy
 	ch.show()
+}
+
+func (ch *Chr) Rotate(a float64) {
+	dj := 0
+	y := ch.Y
+	x0 := float64(ch.X + ch.shapeWidth/2)
+	for j := 0; j < ch.shapeHeight; j++ {
+		for i := 0; i < ch.shapeWidth; i++ {
+			if ch.shape[dj+i] > 0 {
+				x := int(math.Ceil((float64(i)-float64(ch.shapeWidth)/2)*math.Cos(a) + x0))
+				ogl.PutPixelRGB(x, y, ch.Color)
+			}
+		}
+		dj += ch.shapeWidth
+		y++
+	}
+}
+
+func (ch *Chr) generateBitmap() {
+	ch.bitmap = make([]byte, ch.shapeHeight*ch.shapeWidth*4)
+	di := 0
+	idx := 0
+	for i := 0; i < ch.shapeHeight; i++ {
+		for j := 0; j < ch.shapeWidth; j++ {
+			if ch.shape[di+j] > 0 {
+				ch.bitmap[idx] = byte(ch.Color >> 24)
+				ch.bitmap[idx+1] = byte(ch.Color >> 16)
+				ch.bitmap[idx+2] = byte(ch.Color >> 8)
+				ch.bitmap[idx+3] = byte(ch.Color)
+			} else {
+				ch.bitmap[idx] = 0
+				ch.bitmap[idx+1] = 0
+				ch.bitmap[idx+2] = 0
+				ch.bitmap[idx+3] = 0
+			}
+			idx += 4
+		}
+		di += ch.shapeWidth
+	}
+}
+
+func (ch *Chr) SetRotationSpeed(f float64) {
+	ch.rotationSpeed = f
+}
+
+func (ch *Chr) SetFallingSpeed(i int) {
+	ch.fallingSpeed = i
+}
+
+func (ch *Chr) Run() {
+	ch.a += ch.rotationSpeed
+	if ch.a > 2*math.Pi {
+		for {
+			if ch.a < 2*math.Pi {
+				break
+			}
+			ch.a -= math.Pi
+		}
+	}
+	if mlib.Rand(999) == 9 {
+		ch.SetChar(rune(availableCharCodes[mlib.GetRandomBtw(0, len(availableCharCodes)-1)]))
+	}
+	//if ch.a-math.Pi <= ch.rotationSpeed {
+	//	}
+	ch.Y -= ch.fallingSpeed
+	ch.Rotate(ch.a)
+}
+
+func (ch *Chr) GetRotationAngle() float64 {
+	return ch.a
 }

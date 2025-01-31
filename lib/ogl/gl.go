@@ -17,7 +17,7 @@ const (
 	Ym     = height - 1
 )
 
-var pixelArr *[width * height * 3]byte
+var pixelArr *[width * height * 4]byte
 
 // var pixelArr []byte
 var window *glfw.Window
@@ -36,9 +36,9 @@ func init() {
 	pressedKeys = make([]glfw.Key, 0)
 	lookupTable = make([]int, height)
 	for i := 0; i < height; i++ {
-		lookupTable[i] = i * width * 3
+		lookupTable[i] = i * width * 4
 	}
-	//pixelArr = make([]byte, width*height*3)
+	//pixelArr = make([]byte, width*height*4)
 }
 
 func Init(fullScreen bool) {
@@ -49,7 +49,6 @@ func Init(fullScreen bool) {
 	glfw.WindowHint(glfw.ContextVersionMajor, 2)
 	glfw.WindowHint(glfw.ContextVersionMinor, 1)
 	glfw.WindowHint(glfw.DoubleBuffer, glfw.True)
-	//glfw.WindowHint(glfw.DoubleBuffer, glfw.False)
 	{
 		var err error
 		window, err = glfw.CreateWindow(width, height, "Title", nil, nil)
@@ -71,7 +70,7 @@ func Init(fullScreen bool) {
 	glfw.SwapInterval(1)
 
 	gl.BindBuffer(gl.PIXEL_UNPACK_BUFFER, buffers[0])
-	gl.BufferData(gl.PIXEL_UNPACK_BUFFER, width*height*3, nil, gl.STATIC_DRAW)
+	gl.BufferData(gl.PIXEL_UNPACK_BUFFER, width*height*4, nil, gl.STREAM_DRAW)
 
 	lastX, lastY = window.GetPos()
 	lastWidth, lastHeight = window.GetSize()
@@ -91,86 +90,62 @@ func Close() {
 }
 
 func PutPixel(x, y int, color ...byte) {
-	if x < 0 || x >= width || y < 0 || y >= height {
-		return
-	}
-	idx := lookupTable[y] + x<<1 + x
 	r := byte(0)
 	g := byte(0)
 	b := byte(0)
+	a := byte(0)
 	if len(color) == 1 {
 		r = color[0]
 		g = color[0]
 		b = color[0]
+		a = color[0]
 	} else if len(color) == 2 {
 		r = color[0]
 		g = color[1]
+		b = color[1]
+		a = color[1]
 	} else if len(color) == 3 {
 		r = color[0]
 		g = color[1]
 		b = color[2]
-	}
-
-	pixelArr[idx] = r
-	pixelArr[idx+1] = g
-	pixelArr[idx+2] = b
-}
-
-func UnsafePutPixel(x, y int, color ...byte) {
-	idx := lookupTable[y] + x<<1 + x
-	r := byte(0)
-	g := byte(0)
-	b := byte(0)
-	if len(color) == 1 {
-		r = color[0]
-		g = color[0]
-		b = color[0]
-	} else if len(color) == 2 {
-		r = color[0]
-		g = color[1]
-	} else if len(color) == 3 {
+		a = color[2]
+	} else if len(color) == 4 {
 		r = color[0]
 		g = color[1]
 		b = color[2]
+		a = color[3]
 	}
-
-	pixelArr[idx] = r
-	pixelArr[idx+1] = g
-	pixelArr[idx+2] = b
-}
-
-func UnsafePutPixelRGB(x, y int, r, g, b byte) {
-	i := lookupTable[y] + x<<1 + x
-
-	pixelArr[i] = r
-	pixelArr[i+1] = g
-	pixelArr[i+2] = b
-}
-
-func PutPixelRGB(x, y int, r, g, b byte) {
 	if x < 0 || x >= width || y < 0 || y >= height {
 		return
 	}
-	idx := lookupTable[y] + x<<1 + x
 
-	pixelArr[idx] = r
-	pixelArr[idx+1] = g
-	pixelArr[idx+2] = b
+	copy(pixelArr[lookupTable[y]+x<<2:], []byte{r, g, b, a})
 }
 
-func GetPixel(x, y int) []byte {
+func UnsafePutPixelRGBA(x, y int, color uint32) {
+	//                                                       r                   g                  b           a
+	copy(pixelArr[lookupTable[y]+x<<2:], []byte{byte(color >> 24), byte(color >> 16), byte(color >> 8), byte(color)})
+}
+
+func PutPixelRGB(x, y int, color uint32) {
+	if x < 0 || x >= width || y < 0 || y >= height {
+		return
+	}
+	UnsafePutPixelRGBA(x, y, color)
+}
+
+func GetPixel(x, y int) uint32 {
 	if x < 0 || x >= width || y < 0 && y >= height {
-		return []byte{}
+		return 0
 	}
-	index := lookupTable[y] + x<<1 + x
 
-	return []byte{pixelArr[index], pixelArr[index+1], pixelArr[index+2]}
+	return GetPixelUnsafe(x, y)
 }
 
 func GetPixelUnsafe(x, y int) uint32 {
-	i := lookupTable[y] + x<<1 + x
-
-	return uint32(pixelArr[i]) + uint32(pixelArr[i+1])<<8 + uint32(pixelArr[i+2])<<16
+	i := lookupTable[y] + x<<2
+	//             a                         b                          g                            r
+	return uint32(pixelArr[i]) + uint32(pixelArr[i+1])<<8 + uint32(pixelArr[i+2])<<16 + uint32(pixelArr[i+3])<<24
 }
 
 func GetWindowWidth() int {
@@ -199,7 +174,7 @@ func draw(window *glfw.Window, run func()) {
 	if !gl.UnmapBuffer(gl.PIXEL_UNPACK_BUFFER) {
 		return
 	}
-	pixelArr = (*[width * height * 3]byte)(pboPtr)
+	pixelArr = (*[width * height * 4]byte)(pboPtr)
 	//pixelArr = unsafe.Slice((*byte)(pboPtr), width*height*3)
 	//pixelArr = (*[width * height * 3]byte)(pboPtr)[:width*height*3]
 
@@ -207,15 +182,67 @@ func draw(window *glfw.Window, run func()) {
 	ClearScreen()
 	run()
 
-	gl.DrawPixels(width, height, gl.RGB, gl.UNSIGNED_BYTE, nil)
+	gl.DrawPixels(width, height, gl.RGBA, gl.UNSIGNED_BYTE, nil)
 	SwapBuffers()
 
 	glfw.PollEvents()
 	processInput(window)
 }
 
-func GetCurrentIndex() int {
-	return index
+func PutBitmap(x, y int, w, h int, bitmap []uint32) {
+	di := 0
+	for i := 0; i < h; i++ {
+		if y >= len(lookupTable) || y < 0 {
+			di += w
+			y += 1
+			continue
+		}
+		idx := lookupTable[y] + x<<2
+
+		if idx >= len(pixelArr) || idx < 0 {
+			di += w
+			y += 1
+			continue
+		}
+		copy(pixelArr[idx:], toBytes(bitmap[di:di+w]))
+		di += w
+		y += 1
+	}
+}
+
+func PutByteBitmap(x, y int, w, h int, bitmap []byte) {
+	di := 0
+	for i := 0; i < h; i++ {
+		if y >= len(lookupTable) || y < 0 {
+			di += w
+			y += 1
+			continue
+		}
+		idx := lookupTable[y] + x<<2
+
+		if idx >= len(pixelArr) || idx < 0 {
+			di += w
+			y += 1
+			continue
+		}
+		copy(pixelArr[idx:], bitmap[di:di+w])
+		di += w
+		y += 1
+	}
+}
+
+func toBytes(arr []uint32) []byte {
+	res := make([]byte, 4*len(arr))
+	i := 0
+	for _, c := range arr {
+		res[i] = byte(c >> 24)
+		res[i+1] = byte(c >> 16)
+		res[i+2] = byte(c >> 8)
+		res[i+3] = byte(c)
+		i += 4
+	}
+
+	return res
 }
 
 func SwapBuffers() {

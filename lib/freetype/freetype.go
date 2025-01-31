@@ -84,7 +84,7 @@ func LoadFont(pathToFont string) (Font, error) {
 	//} table_directory;
 
 	numTables := bytesToInt([]byte{subTableOffset[4], subTableOffset[5]})
-	log("numTables:", numTables)
+	//log("numTables:", numTables)
 	offsetToCMAP := 0
 	lenCMAP := 0
 	offsetToHEAD := 0
@@ -199,8 +199,8 @@ func loadCMAP(offsetToCMAP int, lenCMAP int, fontFile *os.File) (*font, error) {
 	if nBytesRead != 2+2 {
 		return nil, fmt.Errorf("unexpected input")
 	}
-	log("version:", printBytes(dataToRead[:2]))
-	log("number of sub tables:", bytesToInt(dataToRead[2:]))
+	//log("version:", printBytes(dataToRead[:2]))
+	//log("number of sub tables:", bytesToInt(dataToRead[2:]))
 	offsetTo03 := -1 // the most common platformID and platformSpecificID combination is (0, 3), so we are going to focus on that combination only, supporting the other combinations is just a practice in being more complete and doesn't contribute too much to the overall approach
 	for i := 0; i < bytesToInt(dataToRead[2:]); i++ {
 		dataToRead := make([]byte, 2+2+4)
@@ -211,9 +211,9 @@ func loadCMAP(offsetToCMAP int, lenCMAP int, fontFile *os.File) (*font, error) {
 		if nBytesRead != 2+2+4 {
 			return nil, fmt.Errorf("unexpected input")
 		}
-		log("platform id:", printBytes(dataToRead[:2]))
-		log("platform specific id:", bytesToInt(dataToRead[2:4]))
-		log("offset:", bytesToInt(dataToRead[4:]))
+		//log("platform id:", printBytes(dataToRead[:2]))
+		//log("platform specific id:", bytesToInt(dataToRead[2:4]))
+		//log("offset:", bytesToInt(dataToRead[4:]))
 		if bytesToInt(dataToRead[:2]) == 0 && bytesToInt(dataToRead[2:4]) == 3 {
 			offsetTo03 = bytesToInt(dataToRead[4:])
 		}
@@ -256,13 +256,13 @@ func loadCMAP(offsetToCMAP int, lenCMAP int, fontFile *os.File) (*font, error) {
 	}
 	bytesRead += nBytesRead
 	format4TableLength := bytesToInt(dataToRead[2:4])
-	log("format:", printBytes(dataToRead[:2]), bytesToInt(dataToRead[:2]))
-	log("length:", printBytes(dataToRead[2:4]), bytesToInt(dataToRead[2:4]))
-	log("language:", printBytes(dataToRead[4:6]), bytesToStr(dataToRead[4:6]))
-	log("seg_count_x2:", printBytes(dataToRead[6:8]), bytesToInt(dataToRead[6:8]))
-	log("search_range:", printBytes(dataToRead[8:10]), bytesToInt(dataToRead[8:10]))
-	log("entry_selector:", printBytes(dataToRead[10:12]), bytesToInt(dataToRead[10:12]))
-	log("range_shift:", printBytes(dataToRead[12:14]), bytesToInt(dataToRead[12:14]))
+	//log("format:", printBytes(dataToRead[:2]), bytesToInt(dataToRead[:2]))
+	//log("length:", printBytes(dataToRead[2:4]), bytesToInt(dataToRead[2:4]))
+	//log("language:", printBytes(dataToRead[4:6]), bytesToStr(dataToRead[4:6]))
+	//log("seg_count_x2:", printBytes(dataToRead[6:8]), bytesToInt(dataToRead[6:8]))
+	//log("search_range:", printBytes(dataToRead[8:10]), bytesToInt(dataToRead[8:10]))
+	//log("entry_selector:", printBytes(dataToRead[10:12]), bytesToInt(dataToRead[10:12]))
+	//log("range_shift:", printBytes(dataToRead[12:14]), bytesToInt(dataToRead[12:14]))
 	segCountX2 := bytesToInt(dataToRead[6:8])
 	uSegCountX2 := bytesToUint(dataToRead[6:8])
 	endCodeArr := make([]byte, segCountX2)
@@ -288,7 +288,7 @@ func loadCMAP(offsetToCMAP int, lenCMAP int, fontFile *os.File) (*font, error) {
 		return nil, fmt.Errorf("unexpected input")
 	}
 	bytesRead += nBytesRead
-	log("reserved_pad:", printBytes(dataToRead), bytesToStr(dataToRead))
+	//log("reserved_pad:", printBytes(dataToRead), bytesToStr(dataToRead))
 	startCodeArr := make([]byte, segCountX2)
 	for i := 0; i < segCountX2; i += 2 {
 		dataToRead = make([]byte, 2)
@@ -337,7 +337,7 @@ func loadCMAP(offsetToCMAP int, lenCMAP int, fontFile *os.File) (*font, error) {
 		idRangeOffset[i] = dataToRead[0]
 		idRangeOffset[i+1] = dataToRead[1]
 	}
-	log("format 4 table length is", format4TableLength, "and we read", bytesRead, "bytesRemaining represent glyphIdArray", format4TableLength-bytesRead)
+	//log("format 4 table length is", format4TableLength, "and we read", bytesRead, "bytesRemaining represent glyphIdArray", format4TableLength-bytesRead)
 	glyphIdArray := make([]byte, 0)
 	offset, err = fontFile.Seek(0, io.SeekCurrent)
 	if err != nil {
@@ -367,7 +367,7 @@ func loadCMAP(offsetToCMAP int, lenCMAP int, fontFile *os.File) (*font, error) {
 	f.idRangeOffset = make([]uint, f.segCount)
 	f.glyphIdArr = make([]uint, 0)
 	for i := 0; i < segCountX2/2; i += 2 {
-		log("start code: ", printBytes(startCodeArr[i:i+2]), bytesToInt(startCodeArr[i:i+2]), " |  end code:", printBytes(endCodeArr[i:i+2]), bytesToInt(endCodeArr[i:i+2]), " |  id delta:", printBytes(idDelta[i:i+2]), bytesToInt(idDelta[i:i+2]), " |  id range offset:", printBytes(idRangeOffset[i:i+2]), bytesToInt(idRangeOffset[i:i+2]))
+		//log("start code: ", printBytes(startCodeArr[i:i+2]), bytesToInt(startCodeArr[i:i+2]), " |  end code:", printBytes(endCodeArr[i:i+2]), bytesToInt(endCodeArr[i:i+2]), " |  id delta:", printBytes(idDelta[i:i+2]), bytesToInt(idDelta[i:i+2]), " |  id range offset:", printBytes(idRangeOffset[i:i+2]), bytesToInt(idRangeOffset[i:i+2]))
 		f.startCodeArr[i] = bytesToUint(startCodeArr[i : i+2])
 		f.endCodeArr[i] = bytesToUint(endCodeArr[i : i+2])
 		f.idDelta[i] = bytesToUint(idDelta[i : i+2])
@@ -421,17 +421,17 @@ func loadHEAD(f *font, fontFile *os.File, offsetToHEAD, lenHEAD int) error {
 	if nBytesRead != 4+4+4+4+2+2+8+8+2+2+2+2+2+2+2+2+2 {
 		return fmt.Errorf("unexpected input")
 	}
-	log("font version:", printBytes(dataToRead[:4]), bytesToInt(dataToRead[:2]), ".", bytesToInt(dataToRead[2:4]))   // 4
-	log("fontRevision:", printBytes(dataToRead[4:8]), bytesToInt(dataToRead[4:6]), ".", bytesToInt(dataToRead[6:8])) // 8
-	log("magic number:", printBytes(dataToRead[12:16]))                                                              // 16
+	//log("font version:", printBytes(dataToRead[:4]), bytesToInt(dataToRead[:2]), ".", bytesToInt(dataToRead[2:4]))   // 4
+	//log("fontRevision:", printBytes(dataToRead[4:8]), bytesToInt(dataToRead[4:6]), ".", bytesToInt(dataToRead[6:8])) // 8
+	//log("magic number:", printBytes(dataToRead[12:16]))                                                              // 16
 	// 16:18
-	log("units per em:", printBytes(dataToRead[18:20]), bytesToInt(dataToRead[18:20]))
+	//log("units per em:", printBytes(dataToRead[18:20]), bytesToInt(dataToRead[18:20]))
 	// 20:28
 	// 28:36
-	log("XMin:", printBytes(dataToRead[36:38]), bytesToInt16(dataToRead[36:38]))
-	log("YMin:", printBytes(dataToRead[38:40]), bytesToInt16(dataToRead[38:40]))
-	log("XMax:", printBytes(dataToRead[40:42]), bytesToInt16(dataToRead[40:42]))
-	log("YMax:", printBytes(dataToRead[42:44]), bytesToInt16(dataToRead[42:44]))
+	//log("XMin:", printBytes(dataToRead[36:38]), bytesToInt16(dataToRead[36:38]))
+	//log("YMin:", printBytes(dataToRead[38:40]), bytesToInt16(dataToRead[38:40]))
+	//log("XMax:", printBytes(dataToRead[40:42]), bytesToInt16(dataToRead[40:42]))
+	//log("YMax:", printBytes(dataToRead[42:44]), bytesToInt16(dataToRead[42:44]))
 	f.Xmin = bytesToInt16(dataToRead[36:38])
 	f.Ymin = bytesToInt16(dataToRead[38:40])
 	f.Xmax = bytesToInt16(dataToRead[40:42])
@@ -439,8 +439,8 @@ func loadHEAD(f *font, fontFile *os.File, offsetToHEAD, lenHEAD int) error {
 	// 44:46
 	// 46:48
 	// 48:50
-	log("indexToLocFormat:", printBytes(dataToRead[50:52]), bytesToInt(dataToRead[50:52]))
-	log("glyphDataFormat:", printBytes(dataToRead[52:54]), bytesToInt(dataToRead[52:54]))
+	//log("indexToLocFormat:", printBytes(dataToRead[50:52]), bytesToInt(dataToRead[50:52]))
+	//log("glyphDataFormat:", printBytes(dataToRead[52:54]), bytesToInt(dataToRead[52:54]))
 	return nil
 }
 
@@ -503,10 +503,10 @@ func loadHHEA(f *font, fontFile *os.File, offsetToHHEA, lenHHEA int) error {
 	if nBytesRead != 4+2+2+2 {
 		return fmt.Errorf("unexpected input")
 	}
-	log("version:", printBytes(dataToRead[:4]), bytesToInt(dataToRead[0:2]), ".", bytesToInt(dataToRead[2:4])) // 4
-	log("ascender:", printBytes(dataToRead[4:6]), bytesToInt16(dataToRead[4:6]))
-	log("descender:", printBytes(dataToRead[6:8]), bytesToInt16(dataToRead[6:8]))
-	log("lineGap:", printBytes(dataToRead[8:10]), bytesToInt16(dataToRead[8:10]))
+	//log("version:", printBytes(dataToRead[:4]), bytesToInt(dataToRead[0:2]), ".", bytesToInt(dataToRead[2:4])) // 4
+	//log("ascender:", printBytes(dataToRead[4:6]), bytesToInt16(dataToRead[4:6]))
+	//log("descender:", printBytes(dataToRead[6:8]), bytesToInt16(dataToRead[6:8]))
+	//log("lineGap:", printBytes(dataToRead[8:10]), bytesToInt16(dataToRead[8:10]))
 	f.ascent = bytesToInt16(dataToRead[4:6])
 	f.descent = bytesToInt16(dataToRead[6:8])
 	f.lineGap = bytesToInt16(dataToRead[8:10])
@@ -591,14 +591,14 @@ func (f *font) GetGlyphIndex(charCode uint) uint {
 
 func (f *font) GetGlyphOffset(charCode uint) uint {
 	idx := f.GetGlyphIndex(charCode)
-	log(idx)
+	//log(idx)
 
 	return f.GetGlyphOffsetByIndex(idx)
 }
 
 func (f *font) GetGlyphOffsetByIndex(idx uint) uint {
 	idx *= 2
-	log(idx, f.indexToLocFormat)
+	//log(idx, f.indexToLocFormat)
 	//log(printBytes(f.loca, 2))
 	offset := uint(0)
 	if f.indexToLocFormat != 0 {
@@ -614,17 +614,17 @@ func (f *font) GetGlyphDataByIndex(indx uint) *GlyphData {
 	g := &GlyphData{}
 	offset := f.GetGlyphOffsetByIndex(indx)
 	idx := int(offset)
-	log("offset:", offset, "| glyf table starts at:", f.glyfTableStart, "| diff:", offset-f.glyfTableStart, "| glyf table size:", len(f.glyf))
+	//log("offset:", offset, "| glyf table starts at:", f.glyfTableStart, "| diff:", offset-f.glyfTableStart, "| glyf table size:", len(f.glyf))
 	//offset -= f.glyfTableStart
-	log("number of contours", printBytes([]byte{f.glyf[offset], f.glyf[offset+1]}), bytesToInt16([]byte{f.glyf[offset], f.glyf[offset+1]}))
+	//log("number of contours", printBytes([]byte{f.glyf[offset], f.glyf[offset+1]}), bytesToInt16([]byte{f.glyf[offset], f.glyf[offset+1]}))
 	numberOfContours := bytesToInt16([]byte{f.glyf[offset], f.glyf[offset+1]})
-	log("XMin", printBytes([]byte{f.glyf[offset+2], f.glyf[offset+3]}), bytesToInt16([]byte{f.glyf[offset+2], f.glyf[offset+3]}))
+	//log("XMin", printBytes([]byte{f.glyf[offset+2], f.glyf[offset+3]}), bytesToInt16([]byte{f.glyf[offset+2], f.glyf[offset+3]}))
 	g.XMin = bytesToInt16([]byte{f.glyf[offset+2], f.glyf[offset+3]})
-	log("YMin", printBytes([]byte{f.glyf[offset+4], f.glyf[offset+5]}), bytesToInt16([]byte{f.glyf[offset+4], f.glyf[offset+5]}))
+	//log("YMin", printBytes([]byte{f.glyf[offset+4], f.glyf[offset+5]}), bytesToInt16([]byte{f.glyf[offset+4], f.glyf[offset+5]}))
 	g.YMin = bytesToInt16([]byte{f.glyf[offset+4], f.glyf[offset+5]})
-	log("XMax", printBytes([]byte{f.glyf[offset+6], f.glyf[offset+7]}), bytesToInt16([]byte{f.glyf[offset+6], f.glyf[offset+7]}))
+	//log("XMax", printBytes([]byte{f.glyf[offset+6], f.glyf[offset+7]}), bytesToInt16([]byte{f.glyf[offset+6], f.glyf[offset+7]}))
 	g.XMax = bytesToInt16([]byte{f.glyf[offset+6], f.glyf[offset+7]})
-	log("YMax", printBytes([]byte{f.glyf[offset+8], f.glyf[offset+9]}), bytesToInt16([]byte{f.glyf[offset+8], f.glyf[offset+9]}))
+	//log("YMax", printBytes([]byte{f.glyf[offset+8], f.glyf[offset+9]}), bytesToInt16([]byte{f.glyf[offset+8], f.glyf[offset+9]}))
 	g.YMax = bytesToInt16([]byte{f.glyf[offset+8], f.glyf[offset+9]})
 	g.NumberOfContours = uint16(numberOfContours)
 
@@ -638,7 +638,7 @@ func (f *font) GetGlyphDataByIndex(indx uint) *GlyphData {
 
 func (f *font) GetGlyphData(charCode uint) *GlyphData {
 	idx := f.GetGlyphIndex(charCode)
-	log(string(rune(charCode)), charCode, "glyph index is", idx)
+	//log(string(rune(charCode)), charCode, "glyph index is", idx)
 
 	return f.GetGlyphDataByIndex(idx)
 }
@@ -654,16 +654,16 @@ func (f *font) getSimpleGlyphData(numberOfContours int, idx int, g *GlyphData) *
 	numPoints := uint(0)
 	indx := 0
 	for i := 0; i < numberOfContours*2; i += 2 {
-		log(i, printBytes([]byte{f.glyf[idx+10+i], f.glyf[idx+10+i+1]}), bytesToUint([]byte{f.glyf[idx+10+i], f.glyf[idx+10+i+1]}))
+		//log(i, printBytes([]byte{f.glyf[idx+10+i], f.glyf[idx+10+i+1]}), bytesToUint([]byte{f.glyf[idx+10+i], f.glyf[idx+10+i+1]}))
 		endOfContours = append(endOfContours, uint16(bytesToUint([]byte{f.glyf[idx+10+i], f.glyf[idx+10+i+1]})))
 		numPoints = bytesToUint([]byte{f.glyf[idx+10+i], f.glyf[idx+10+i+1]})
 		indx = idx + 10 + i + 1 + 1
 	}
 	numPoints += 1
-	log("instructionLength", printBytes([]byte{f.glyf[indx], f.glyf[indx+1]}), bytesToUint([]byte{f.glyf[indx], f.glyf[indx+1]}))
+	//log("instructionLength", printBytes([]byte{f.glyf[indx], f.glyf[indx+1]}), bytesToUint([]byte{f.glyf[indx], f.glyf[indx+1]}))
 	instructionLen := bytesToInt([]byte{f.glyf[indx], f.glyf[indx+1]})
 	indx += instructionLen + 1 + 1
-	log("flags start at", indx)
+	//log("flags start at", indx)
 	// we know how many flags are there
 	flags := make([][]byte, numPoints)
 
@@ -746,7 +746,7 @@ func (f *font) getSimpleGlyphData(numberOfContours int, idx int, g *GlyphData) *
 		//}
 		for _, end := range endOfContours {
 			if int(end)+1 == i {
-				log(end, i)
+				//log(end, i)
 				g.Points = append(g.Points, contour)
 				contour = make([]GlyphPoint, 0)
 				isAppended = true
@@ -864,35 +864,35 @@ func (f *font) getCompoundGlyphData(idx int, g *GlyphData) *GlyphData {
 	const SCALED_COMPONENT_OFFSET = 0x0800
 	const UNSCALED_COMPONENT_OFFSET = 0x1000
 	for {
-		log("flags:", printBytes([]byte{f.glyf[idx], f.glyf[idx+1]}), bytesToUint([]byte{f.glyf[idx], f.glyf[idx+1]}))
+		//log("flags:", printBytes([]byte{f.glyf[idx], f.glyf[idx+1]}), bytesToUint([]byte{f.glyf[idx], f.glyf[idx+1]}))
 		flags := bytesToUint([]byte{f.glyf[idx], f.glyf[idx+1]})
 		glyphIdx := bytesToUint([]byte{f.glyf[idx+2], f.glyf[idx+3]})
 		childGlyph := f.GetGlyphDataByIndex(glyphIdx)
-		log("child idx", glyphIdx)
+		//log("child idx", glyphIdx)
 		if childGlyph == nil {
-			log("child data was not found")
+			//log("child data was not found")
 			break
 		}
 		arg1 := int16(0)
 		arg2 := int16(0)
 		if flags&ARG_1_AND_2_ARE_WORDS != 0 {
-			log("ARG_1_AND_2_ARE_WORDS")
+			//log("ARG_1_AND_2_ARE_WORDS")
 			arg1 = bytesToInt16([]byte{f.glyf[idx+4], f.glyf[idx+5]})
 			arg1 = bytesToInt16([]byte{f.glyf[idx+6], f.glyf[idx+7]})
 			idx = idx + 7 + 1
 		} else {
-			log("ARG_1_AND_2_ARE_NOT_WORDS")
+			//log("ARG_1_AND_2_ARE_NOT_WORDS")
 			arg1 = bytesToInt16([]byte{0x0, f.glyf[idx+4]})
 			arg2 = bytesToInt16([]byte{0x0, f.glyf[idx+5]})
 			idx = idx + 5 + 1
 		}
 
-		log("arg1:", arg1)
-		log("arg2:", arg2)
+		//log("arg1:", arg1)
+		//log("arg2:", arg2)
 		deltax := float64(0)
 		deltay := float64(0)
 		if flags&ARGS_ARE_XY_VALUES != 0 {
-			log("ARGS_ARE_XY_VALUES")
+			//log("ARGS_ARE_XY_VALUES")
 			// The argument1 and argument2 fields of the component glyph record are used to determine the placement of
 			// the child component glyph within the parent composite glyph.
 			// They are interpreted either as an offset vector or as points from the parent and the child,
@@ -913,7 +913,7 @@ func (f *font) getCompoundGlyphData(idx int, g *GlyphData) *GlyphData {
 			deltax = float64(arg1)
 			deltay = float64(arg2)
 		} else {
-			log("ARGS_ARE_NOT_XY_VALUES")
+			//log("ARGS_ARE_NOT_XY_VALUES")
 			//	If ARGS_ARE_XY_VALUES is not set, then argument1 is a point number in the parent glyph
 			//	(from contours incorporated and re-numbered from previous component glyphs);
 			//	and argument2 is a point number (prior to re-numbering) from the child component glyph.
@@ -964,7 +964,7 @@ func (f *font) getCompoundGlyphData(idx int, g *GlyphData) *GlyphData {
 			//	}
 			//}
 			if foundChildPoint {
-				log("cx, cy", cx, cy, arg2, "found?", foundChildPoint)
+				//log("cx, cy", cx, cy, arg2, "found?", foundChildPoint)
 				i = 0
 				x := int16(0)
 				y := int16(0)
@@ -984,14 +984,14 @@ func (f *font) getCompoundGlyphData(idx int, g *GlyphData) *GlyphData {
 					}
 				}
 				if foundParentPoint {
-					log("x, y", x, y, arg1, "found?", foundParentPoint)
+					//log("x, y", x, y, arg1, "found?", foundParentPoint)
 					deltax = float64(x - cx)
 					deltay = float64(y - cy)
 				} else {
-					log("did not find parent point", "all points", i, "the needed point was", arg1)
+					//log("did not find parent point", "all points", i, "the needed point was", arg1)
 				}
 			} else {
-				log("did not find child point", "all points", i, "the needed point was", arg2)
+				//log("did not find child point", "all points", i, "the needed point was", arg2)
 			}
 		}
 
@@ -1000,16 +1000,16 @@ func (f *font) getCompoundGlyphData(idx int, g *GlyphData) *GlyphData {
 		scale10 := float64(0)
 		yscale := float64(1)
 		if flags&WE_HAVE_A_SCALE != 0 {
-			log("WE_HAVE_A_SCALE")
+			//log("WE_HAVE_A_SCALE")
 			xscale = get2Dot14([]byte{f.glyf[idx], f.glyf[idx+1]})
 			idx = idx + 1 + 1
 		} else if flags&WE_HAVE_AN_X_AND_Y_SCALE != 0 {
-			log("WE_HAVE_AN_X_AND_Y_SCALE")
+			//log("WE_HAVE_AN_X_AND_Y_SCALE")
 			xscale = get2Dot14([]byte{f.glyf[idx], f.glyf[idx+1]})
 			yscale = get2Dot14([]byte{f.glyf[idx+2], f.glyf[idx+3]})
 			idx = idx + 3 + 1
 		} else if flags&WE_HAVE_A_TWO_BY_TWO != 0 {
-			log("WE_HAVE_A_TWO_BY_TWO")
+			//log("WE_HAVE_A_TWO_BY_TWO")
 			xscale = get2Dot14([]byte{f.glyf[idx], f.glyf[idx+1]})
 			scale01 = get2Dot14([]byte{f.glyf[idx+2], f.glyf[idx+3]})
 			scale10 = get2Dot14([]byte{f.glyf[idx+4], f.glyf[idx+5]})
@@ -1017,12 +1017,12 @@ func (f *font) getCompoundGlyphData(idx int, g *GlyphData) *GlyphData {
 			idx = idx + 7 + 1
 		}
 
-		log("xscale", xscale)
-		log("scale01", scale01)
-		log("scale10", scale10)
-		log("yscale", yscale)
-		log("deltax", deltax)
-		log("deltay", deltay)
+		//log("xscale", xscale)
+		//log("scale01", scale01)
+		//log("scale10", scale10)
+		//log("yscale", yscale)
+		//log("deltax", deltax)
+		//log("deltay", deltay)
 		// x′ = xscale * x + scale10 * y + deltax
 		// y′ = scale01 * x + yscale * y + deltay
 		for _, c := range childGlyph.Points {
