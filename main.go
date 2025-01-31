@@ -40,7 +40,7 @@ func main() {
 
 	w := ogl.GetWindowWidth()
 	h := ogl.GetWindowHeight()
-	fontSize := 18
+	fontSize := 27
 	codes := characters.GetAvailableCharCodes()
 	x := -9
 	for k := 1; k < 3; k++ {
@@ -96,59 +96,94 @@ func main() {
 
 func getFallingSpeed(size int) int {
 	switch size - 9 {
-	case 9:
+	case 18:
+		return 6
+	case 17:
 		return 5
+	case 16:
+		return 5
+	case 15:
+		return 4
+	case 14:
+		return 4
+	case 13:
+		return 4
+	case 12:
+		return 3
+	case 11:
+		return 3
+	case 10:
+		return 3
+	case 9:
+		return 3
 	case 8:
-		return 4
+		return 2
 	case 7:
-		return 4
+		return 2
 	case 6:
-		return 3
+		return 2
 	case 5:
-		return 3
+		return 2
 	case 4:
 		return 2
 	case 3:
-		return 2
+		return 1
 	case 2:
-		return 2
+		return 1
 	case 1:
 		return 1
 	case 0:
 		return 1
 	}
 
-	fmt.Println("WTF>>>>>>>>>>>>>>>>>>>>>>>>>>>")
 	return 1
 }
 
 func getColor(n int) uint32 {
 	switch n - 9 {
+	case 18:
+		return 0x91D374FF
+	case 17:
+		return 0x89CA6EFF
+	case 16:
+		return 0x80C066FF
+	case 15:
+		return 0x77B65FFF
+	case 14:
+		return 0x6EAC58FF
+	case 13:
+		return 0x65A251FF
+	case 12:
+		return 0x5C9849FF
+	case 11:
+		return 0x538E42FF
+	case 10:
+		return 0x4A843BFF
 	case 9:
-		return 0x42826cff
+		return 0x38702DFF
 	case 8:
-		return 0x38705dff
+		return 0x2F6625FF
 	case 7:
-		return 0x2f5f4eff
+		return 0x265C1EFF
 	case 6:
-		return 0x254e40ff
+		return 0x1D5217FF
 	case 5:
-		return 0x1c3e32ff
+		return 0x144810FF
 	case 4:
-		return 0x142f25ff
+		return 0x0B3E08FF
 	case 3:
-		return 0x0b2019ff
+		return 0x023401FF
 	case 2:
-		return 0x05120dff
+		return 0x002A00FF
 	case 1:
-		return 0x010604ff
+		return 0x001600FF
 	case 0:
-		return 0x000100ff
+		return 0x000D00FF
 	}
 
-	fmt.Println("WTF>>>>>>>>>>>>>>>>>>>>>>>>>>>")
 	return 0x000100ff
 }
+
 func timer(name string) func() {
 	start := time.Now()
 	return func() {
