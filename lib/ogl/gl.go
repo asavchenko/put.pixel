@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"github.com/go-gl/gl/v2.1/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
-	"log"
 )
 
 const (
@@ -43,7 +42,7 @@ func init() {
 
 func Init(fullScreen bool) {
 	if err := glfw.Init(); err != nil {
-		log.Fatal("failed to initialize glfw:", err)
+		panic(fmt.Sprint("failed to initialize glfw:", err))
 	}
 	glfw.WindowHint(glfw.Resizable, glfw.False)
 	glfw.WindowHint(glfw.ContextVersionMajor, 2)
@@ -61,7 +60,7 @@ func Init(fullScreen bool) {
 		GoFullScreen()
 	}
 	if err := gl.Init(); err != nil {
-		log.Fatal("failed to initialize gl bindings:", err)
+		panic(fmt.Sprint("failed to initialize gl bindings:", err))
 	}
 	version := gl.GoStr(gl.GetString(gl.VERSION))
 	fmt.Println("OpenGL version", version)
@@ -228,6 +227,20 @@ func PutByteBitmap(x, y int, w, h int, bitmap []byte) {
 		copy(pixelArr[idx:], bitmap[di:di+w])
 		di += w
 		y += 1
+	}
+}
+
+func PutByteBitmapBordered(x, y int, il, ih, jl, jh int, w int, h int, bitmap []byte) {
+	x4 := x << 2
+	jl4 := jl << 2
+	jh4 := jh << 2
+	di := il * w
+	width4 := width << 2
+	idx := lookupTable[y] + x4
+	for i := il; i <= ih; i++ {
+		copy(pixelArr[idx:], bitmap[di+jl4:di+jh4])
+		di += w
+		idx += width4
 	}
 }
 

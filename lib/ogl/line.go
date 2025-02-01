@@ -7,7 +7,25 @@ import (
 	"assa.com/put.pixel/lib/mlib"
 )
 
-func Line(xa, ya, xb, yb int, color ...byte) int {
+func Line(xa, ya, xb, yb int, color ...byte) bool {
+	x1, y1, x2, y2, isVisible := getWithVisibility(xa, ya, xb, yb)
+	if isVisible {
+		__line(x1, y1, x2, y2, color...)
+	}
+
+	return isVisible
+}
+
+func LineRGBA(xa, ya, xb, yb int, color uint32) bool {
+	x1, y1, x2, y2, isVisible := getWithVisibility(xa, ya, xb, yb)
+	if isVisible {
+		__lineRGBA(x1, y1, x2, y2, color)
+	}
+
+	return isVisible
+}
+
+func getWithVisibility(xa int, ya int, xb int, yb int) (int, int, int, int, bool) {
 	//yb = Ym - yb
 	x1 := xa
 	y1 := ya
@@ -568,11 +586,8 @@ func Line(xa, ya, xb, yb int, color ...byte) int {
 	default:
 		visible = 0
 	}
-	if visible > 0 {
-		__line(x1, y1, x2, y2, color...)
-	}
 
-	return visible
+	return x1, y1, x2, y2, visible > 0
 }
 
 func line(x0, y0, x1, y1 int, color ...byte) {
@@ -826,6 +841,183 @@ func __line(x1, y1, x2, y2 int, color ...byte) {
 				e := dy - dx_
 				for k := 0; k < dx_; k++ {
 					putPixel(x, y, color...)
+					for {
+						if e < 0 {
+							break
+						}
+						y--
+						e -= dx
+					}
+					x--
+					e += dy
+				}
+			}
+		}
+	}
+}
+
+func __lineRGBA(x1, y1, x2, y2 int, color uint32) {
+	if x2 == x1 {
+		if y1 < y2 {
+			for k := y1; k < y2+1; k++ {
+				UnsafePutPixelRGBA(x1, k, color)
+			}
+		} else {
+			for k := y2; k < y1+1; k++ {
+				UnsafePutPixelRGBA(x1, k, color)
+			}
+		}
+		return
+	}
+
+	if y2 == y1 {
+		if x1 < x2 {
+			//from := (x1 + yTable[y1]) * 4
+			//from := (x1 + y1*width) * 4
+			from := lookupTable[y1] + x1<<2
+			l := (x2 - x1 + 1) << 2
+			for i := 0; i < l; i += 4 {
+				copy(pixelArr[from+i:], []byte{byte(color >> 24), byte(color >> 16), byte(color >> 8), byte(color)})
+			}
+			//C.memset(unsafe.Pointer(&(screen[(x1+yTable[y1])*3])), C.int(color), C.ulong((x2-x1+1)*3))
+			return
+		}
+		//from := (x2 + yTable[y1]) * 4
+		//from := (x2 + y1*width) * 4
+		from := lookupTable[y1] + x2<<2
+		l := (x1 - x2 + 1) << 2
+		for i := 0; i < l; i += 4 {
+			copy(pixelArr[from+i:], []byte{byte(color >> 24), byte(color >> 16), byte(color >> 8), byte(color)})
+		}
+		// C.memset(unsafe.Pointer(&(screen[(x2+yTable[y1])*3])), C.int(color), C.ulong((x1-x2+1)*3))
+		return
+	}
+	x := x1
+	y := y1
+
+	dx := (mlib.AbsInt(x2 - x1)) << 1 // 190 - 165 = 25 * 2 = 50
+	dy := (mlib.AbsInt(y2 - y1)) << 1 // 345 - 311 = 34 * 2 = 68
+
+	if x2 > x1 {
+		if y2 > y1 {
+			if dy > dx { // x2 > x1  y2 > y1 dy > dx
+				dy_ := dy >> 1 // 34
+				e := dx - dy_  // 50 - 34
+				for k := 0; k < dy_; k++ {
+					UnsafePutPixelRGBA(x, y, color)
+					for {
+						if e < 0 {
+							break
+						}
+						x++
+						e -= dy
+					}
+					y++
+					e += dx
+				}
+			} else { // x2 > x1  y2 > y1 dy < dx
+				dx_ := dx >> 1
+				e := dy - dx_
+				for k := 0; k < dx_; k++ {
+					UnsafePutPixelRGBA(x, y, color)
+					for {
+						if e < 0 {
+							break
+						}
+						y++
+						e -= dx
+					}
+					x++
+					e += dy
+				}
+			}
+		} else if y2 < y1 {
+			if dy > dx { // x2 > x1  y2 < y1 dy > dx
+				dy_ := dy >> 1
+				e := dx - dy_
+				for k := 0; k < dy_; k++ {
+					UnsafePutPixelRGBA(x, y, color)
+					for {
+						if e < 0 {
+							break
+						}
+						x++
+						e -= dy
+					}
+					y--
+					e += dx
+				}
+			} else { // x2 > x1  y2 < y1 dy < dx
+				dx_ := dx >> 1
+				e := dy - dx_
+				for k := 0; k < dx_; k++ {
+					UnsafePutPixelRGBA(x, y, color)
+					for {
+						if e < 0 {
+							break
+						}
+						y--
+						e -= dx
+					}
+					x++
+					e += dy
+				}
+			}
+		}
+	} else if x2 < x1 {
+		if y2 > y1 {
+			if dy > dx { // x2 < x1  y2 > y1 dy > dx
+				dy_ := dy >> 1
+				e := dx - dy_
+				for k := 0; k < dy_; k++ {
+					UnsafePutPixelRGBA(x, y, color)
+					for {
+						if e < 0 {
+							break
+						}
+						x--
+						e -= dy
+					}
+					y++
+					e += dx
+				}
+			} else { // x2 < x1  y2 > y1 dy < dx
+				dx_ := dx >> 1
+				e := dy - dx_
+				for k := 0; k < dx_; k++ {
+					UnsafePutPixelRGBA(x, y, color)
+					for {
+						if e < 0 {
+							break
+						}
+						y++
+						e -= dx
+					}
+					x--
+					e += dy
+				}
+			}
+		} else if y2 < y1 {
+			if dy > dx { // x2 < x1  y2 < y1 dy > dx
+				dy_ := dy >> 1
+				e := dx - dy_
+				for k := 0; k < dy_; k++ {
+					UnsafePutPixelRGBA(x, y, color)
+					for {
+						if e < 0 {
+							break
+						}
+						x--
+						e -= dy
+					}
+					y--
+					e += dx
+				}
+			} else { // x2 < x1  y2 < y1 dy < dx
+				dx_ := dx >> 1
+				e := dy - dx_
+				for k := 0; k < dx_; k++ {
+					UnsafePutPixelRGBA(x, y, color)
 					for {
 						if e < 0 {
 							break

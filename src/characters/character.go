@@ -1,40 +1,31 @@
 package characters
 
 import (
-	"assa.com/put.pixel/lib/mlib"
-	"math"
-	"time"
-
 	"assa.com/put.pixel/lib/ogl"
 	"assa.com/put.pixel/src/characters/utf8"
+	"math"
 )
 
 const INVISIBLE_COLOR = 0xffffffff
 
 type Chr struct {
-	Ch            rune
-	a             float64
-	fallingSpeed  int
-	rotationSpeed float64
-	Size          int
-	X             int
-	Y             int
-	PX            int
-	PY            int
-	Color         uint32
-	shape         []byte
-	bitmap        []byte
-	commandsCh    chan map[string]interface{}
-	wH            int
-	wW            int
-	shapeWidth    int
-	shapeHeight   int
-	shapeSize     int
+	Ch          rune
+	Size        int
+	x           int
+	y           int
+	Color       uint32
+	shape       []byte
+	bitmap      []byte
+	wH          int
+	wW          int
+	shapeWidth  int
+	shapeHeight int
+	shapeSize   int
 }
 
 func (ch *Chr) SetChar(chRune rune) {
 	ch.Ch = chRune
-	<-ch.Scale(ch.Size)
+	ch.scale(ch.Size)
 	//ch.generateBitmap()
 }
 
@@ -47,7 +38,7 @@ func (ch *Chr) SetCharacterSize(size int) *Chr {
 	case 14:
 		ch.shape = ch.trim(utf8.GetShape(ch.Ch), utf8.WIDTH, utf8.HEIGHT)
 	default:
-		<-ch.Scale(size)
+		ch.scale(size)
 	}
 	ch.Size = size
 
@@ -85,87 +76,24 @@ func GetNew(chRune rune, x, y int, color uint32) *Chr {
 	ch.Ch = chRune
 	ch.wH = ogl.GetWindowHeight()
 	ch.wW = ogl.GetWindowWidth()
-	ch.shape = ch.trim(utf8.GetShape(chRune), utf8.WIDTH, utf8.HEIGHT)
-	ch.X = x
-	ch.Y = y
-	ch.PX = x
-	ch.PY = y
+	ch.shape = nil
+	ch.x = x
+	ch.y = y
 	ch.Color = color
 	ch.Size = 14
 	ch.shapeSize = ch.shapeHeight * ch.shapeWidth
 	ch.generateBitmap()
-	ch.commandsCh = make(chan map[string]interface{}, 0)
-	go func() {
-		for command := range ch.commandsCh {
-			switch command["action"] {
-			case "get_position":
-				select {
-				case command["output_to"].(chan []int) <- []int{ch.X, ch.Y}:
-				case <-time.After(3 * time.Second):
-				}
-			case "move":
-				data := command["data"].(map[string]interface{})
-				dx := data["dx"].(int)
-				dy := data["dy"].(int)
-				ch.move(dx, dy)
-				select {
-				case command["done"].(chan bool) <- true:
-				case <-time.After(3 * time.Second):
-				}
-			case "scale":
-				data := command["data"].(map[string]interface{})
-				size := data["size"].(int)
-				ch.scale(size)
-				select {
-				case command["done"].(chan bool) <- true:
-				case <-time.After(3 * time.Second):
-				}
-			}
-		}
-	}()
 	return ch
 }
 
 func (ch *Chr) MoveUnsafe(dx, dy int) {
-	ch.PX = ch.X
-	ch.PY = ch.Y
-	ch.X += dx
-	ch.Y += dy
+	ch.x += dx
+	ch.y += dy
 	ch.ShowUnsafe()
 }
 
 func (ch *Chr) contains(x, y int) bool {
-	return x < ch.X+ch.shapeWidth && x >= ch.X && y < ch.Y+ch.shapeHeight && y >= ch.Y
-}
-
-func (ch *Chr) ShowUnsafe() {
-	if ch.IsInvisible() {
-		return
-	}
-
-	ch.draw()
-}
-
-func (ch *Chr) draw() {
-	ogl.PutByteBitmap(ch.X, ch.Y, ch.shapeWidth*4, ch.shapeHeight, ch.bitmap)
-	//x := ch.X
-	//y := ch.Y
-	//di := 0
-	//for i := 0; i < ch.shapeHeight; i++ {
-	//	for j := 0; j < ch.shapeWidth; j++ {
-	//		if ch.shape[di+j] > 0 {
-	//			ogl.PutPixel(x, y, 200, 200, 200)
-	//		}
-	//		x++
-	//	}
-	//	di += ch.shapeWidth
-	//	x = ch.X
-	//	y++
-	//}
-	//ogl.Line(ch.X, ch.Y, ch.X+ch.shapeWidth, ch.Y, ch.Color, ch.Color, ch.Color)
-	//ogl.Line(ch.X+ch.shapeWidth, ch.Y, ch.X+ch.shapeWidth, ch.Y+ch.shapeHeight, ch.Color, ch.Color, ch.Color)
-	//ogl.Line(ch.X+ch.shapeWidth, ch.Y+ch.shapeHeight, ch.X, ch.Y+ch.shapeHeight, ch.Color, ch.Color, ch.Color)
-	//ogl.Line(ch.X, ch.Y+ch.shapeHeight, ch.X, ch.Y, ch.Color, ch.Color, ch.Color)
+	return x < ch.x+ch.shapeWidth && x >= ch.x && y < ch.y+ch.shapeHeight && y >= ch.y
 }
 
 func (ch *Chr) trim(shape []byte, w, h int) []byte {
@@ -273,7 +201,6 @@ func (ch *Chr) scale(size int) {
 			if x >= nw {
 				x = nw - 1
 			}
-
 			resized[y*nw+x] = original[dj+i]
 		}
 		dj += ow
@@ -282,12 +209,16 @@ func (ch *Chr) scale(size int) {
 }
 
 // /////////////////////////////////////////////////////
-func (ch *Chr) show() {
+func (ch *Chr) ShowUnsafe() {
 	if ch.IsInvisible() {
 		return
 	}
 
 	ch.draw()
+}
+
+func (ch *Chr) draw() {
+	ogl.PutByteBitmap(ch.x, ch.y, ch.shapeWidth*4, ch.shapeHeight, ch.bitmap)
 }
 
 func (ch *Chr) GetWidth() int {
@@ -299,86 +230,11 @@ func (ch *Chr) GetHeight() int {
 }
 
 func (ch *Chr) IsInvisible() bool {
-	return ch.X+ch.shapeWidth <= 0 || ch.X >= ch.wW || ch.Y+ch.shapeHeight <= 0 || ch.Y >= ch.wH
+	return ch.x+ch.shapeWidth <= 0 || ch.x >= ch.wW || ch.y+ch.shapeHeight <= 0 || ch.y >= ch.wH
 }
 
 func (ch *Chr) isPixelVisible(x, y int) bool {
 	return x >= 0 && y >= 0 && x < ch.wW && y < ch.wH
-}
-
-func (ch *Chr) Move(dx, dy int) chan bool {
-	doneCh := make(chan bool, 1)
-	select {
-	case ch.commandsCh <- map[string]interface{}{
-		"action": "move",
-		"data": map[string]interface{}{
-			"dx": dx,
-			"dy": dy,
-		},
-		"done": doneCh,
-	}:
-	case <-time.After(3 * time.Second):
-	}
-
-	return doneCh
-}
-
-func (ch *Chr) Scale(size int) chan bool {
-	doneCh := make(chan bool, 1)
-	select {
-	case ch.commandsCh <- map[string]interface{}{
-		"action": "scale",
-		"data": map[string]interface{}{
-			"size": size,
-		},
-		"done": doneCh,
-	}:
-	case <-time.After(3 * time.Second):
-	}
-
-	return doneCh
-}
-
-func (ch *Chr) GetPosition() (int, int) {
-	readFrom := make(chan []int, 1)
-	select {
-	case ch.commandsCh <- map[string]interface{}{
-		"action":    "get_position",
-		"output_to": readFrom,
-	}:
-	case <-time.After(3 * time.Second):
-		return 0, 0
-	}
-	select {
-	case res := <-readFrom:
-		return res[0], res[1]
-	case <-time.After(3 * time.Second):
-		return 0, 0
-	}
-}
-
-func (ch *Chr) move(dx, dy int) {
-	ch.PX = ch.X
-	ch.PY = ch.Y
-	ch.X += dx
-	ch.Y += dy
-	ch.show()
-}
-
-func (ch *Chr) Rotate(a float64) {
-	dj := 0
-	y := ch.Y
-	x0 := float64(ch.X + ch.shapeWidth/2)
-	for j := 0; j < ch.shapeHeight; j++ {
-		for i := 0; i < ch.shapeWidth; i++ {
-			if ch.shape[dj+i] > 0 {
-				x := int(math.Ceil((float64(i)-float64(ch.shapeWidth)/2)*math.Cos(a) + x0))
-				ogl.PutPixelRGB(x, y, ch.Color)
-			}
-		}
-		dj += ch.shapeWidth
-		y++
-	}
 }
 
 func (ch *Chr) generateBitmap() {
@@ -404,33 +260,40 @@ func (ch *Chr) generateBitmap() {
 	}
 }
 
-func (ch *Chr) SetRotationSpeed(f float64) {
-	ch.rotationSpeed = f
+func (ch *Chr) ShowInViewPort(vpx, vpy int, vpw, vph int) {
+	il, ih, jl, jh := ch.getInViewPort(vpx, vpy, vpw, vph)
+	ogl.PutByteBitmapBordered(ch.x-vpx+jl, ch.y-vpy+il, il, ih, jl, jh, ch.shapeWidth<<2, ch.shapeHeight, ch.bitmap)
 }
 
-func (ch *Chr) SetFallingSpeed(i int) {
-	ch.fallingSpeed = i
-}
-
-func (ch *Chr) Run() {
-	ch.a += ch.rotationSpeed
-	if ch.a > 2*math.Pi {
-		for {
-			if ch.a < 2*math.Pi {
-				break
-			}
-			ch.a -= math.Pi
+func (ch *Chr) getInViewPort(vpx int, vpy int, vpw int, vph int) (int, int, int, int) {
+	il := 0
+	ih := ch.shapeHeight - 1
+	for i := 0; i < ch.shapeHeight; i++ {
+		if ch.y+i >= vpy+vph {
+			ih = i - 1
+			il = 0
+			break
+		}
+		if ch.y+i < vpy {
+			il = vpy - (ch.y + i)
+			ih = ch.shapeHeight - 1
+			break
 		}
 	}
-	if mlib.Rand(999) == 9 {
-		ch.SetChar(rune(availableCharCodes[mlib.GetRandomBtw(0, len(availableCharCodes)-1)]))
+	jl := 0
+	jh := ch.shapeWidth - 1
+	for j := 0; j < ch.shapeWidth; j++ {
+		if ch.x+j >= vpx+vpw {
+			jh = j - 1
+			jl = 0
+			break
+		}
+		if ch.x+j < vpx {
+			jl = vpx - (ch.x + j)
+			jh = ch.shapeWidth - 1
+			break
+		}
 	}
-	//if ch.a-math.Pi <= ch.rotationSpeed {
-	//	}
-	ch.Y -= ch.fallingSpeed
-	ch.Rotate(ch.a)
-}
 
-func (ch *Chr) GetRotationAngle() float64 {
-	return ch.a
+	return il, ih, jl, jh
 }

@@ -29,7 +29,7 @@ type font struct {
 	idRangeOffset       []uint
 	glyphIdArr          []uint
 	ascent              int16 // The distance from the baseline to the highest or upper grid coordinate used to place an outline point.
-	//                           It is a positive value, due to the grid's orientation with the Y axis upwards.
+	//                           It is a positive value, due to the grid's orientation with the y axis upwards.
 	//
 	descent int16 //             The distance from the baseline to the lowest grid coordinate used to place an outline point.
 	//                           In FreeType, this is a negative value, due to the grid's orientation.
@@ -739,8 +739,8 @@ func (f *font) getSimpleGlyphData(numberOfContours int, idx int, g *GlyphData) *
 		//if !gp.OnCurve && flags[i-1][0] < 1 {
 		//	missingPoint := GlyphPoint{
 		//		OnCurve: true,
-		//		X:       (xCoordinates[i] + xCoordinates[i-1]) / 2,
-		//		Y:       (yCoordinates[i] + yCoordinates[i-1]) / 2,
+		//		x:       (xCoordinates[i] + xCoordinates[i-1]) / 2,
+		//		y:       (yCoordinates[i] + yCoordinates[i-1]) / 2,
 		//	}
 		//	contour = append(contour, missingPoint)
 		//}

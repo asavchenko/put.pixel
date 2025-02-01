@@ -146,7 +146,7 @@ func drawPointsWithBezier(gd *freetype.GlyphData, debugged bool) {
 				break
 			}
 			//if !debugged {
-			//	log("x:", c[i].X, "y:", c[i].Y, "|", c[i].OnCurve)
+			//	log("x:", c[i].x, "y:", c[i].y, "|", c[i].OnCurve)
 			//}
 			r, g, b := getColor(contourIdx, true)
 			if c[i+1].OnCurve && c[i].OnCurve {
@@ -162,7 +162,7 @@ func drawPointsWithBezier(gd *freetype.GlyphData, debugged bool) {
 			if i+2 < len(c) {
 				if !c[i+1].OnCurve && c[i].OnCurve {
 					//if !debugged {
-					//	log("it looks like it's Bezier", "xa:", c[i].X, "ya:", c[i].Y, "xb:", c[i+2].X, "yb:", c[i+2].Y, "xc:", c[i+1].X, "yc:", c[i+1].Y, c[i].OnCurve, c[i+1].OnCurve, c[i+2].OnCurve)
+					//	log("it looks like it's Bezier", "xa:", c[i].x, "ya:", c[i].y, "xb:", c[i+2].x, "yb:", c[i+2].y, "xc:", c[i+1].x, "yc:", c[i+1].y, c[i].OnCurve, c[i+1].OnCurve, c[i+2].OnCurve)
 					//}
 					points := mlib.GetBezierCoords2(mlib.Point2D{
 						X: float64(c[i].X),
@@ -183,8 +183,8 @@ func drawPointsWithBezier(gd *freetype.GlyphData, debugged bool) {
 							break
 						}
 						//if !debugged {
-						//	log("x1:", points[j].X, "y1:", points[j].Y)
-						//	log("x2:", points[j+1].X, "y2:", points[j+1].Y)
+						//	log("x1:", points[j].x, "y1:", points[j].y)
+						//	log("x2:", points[j+1].x, "y2:", points[j+1].y)
 						//}
 						ogl.Line((w-dx)*(int(points[j].X)-int(gd.XMin))/int(gd.XMax-gd.XMin)+dx, (h-dy)*(int(points[j].Y)-int(gd.YMin))/int(gd.YMax-gd.YMin)+dy,
 							(w-dx)*(int(points[j+1].X)-int(gd.XMin))/int(gd.XMax-gd.XMin)+dx, (h-dy)*(int(points[j+1].Y)-int(gd.YMin))/int(gd.YMax-gd.YMin)+dy,

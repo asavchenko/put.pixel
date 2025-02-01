@@ -1,26 +1,18 @@
 package main
 
 import (
-	"assa.com/put.pixel/lib/mlib"
 	"fmt"
-	"math"
-	"os"
 	"runtime"
-	"strings"
-	"syscall"
 	"time"
 
 	"assa.com/put.pixel/lib/ogl"
 	"assa.com/put.pixel/src/characters"
 )
 
-var chrs []*characters.Chr
-
 func init() {
 	fmt.Println("init")
-	syscall.Setpriority(syscall.PRIO_PROCESS, os.Getpid(), -20)
+	//syscall.Setpriority(syscall.PRIO_PROCESS, os.Getpid(), -20)
 	runtime.LockOSThread()
-	chrs = make([]*characters.Chr, 0)
 }
 
 func main() {
@@ -31,157 +23,99 @@ func main() {
 	//}
 	//pprof.StartCPUProfile(f)
 	//defer pprof.StopCPUProfile()
+	text := `What is Lorem Ipsum?
+	Lorem Ipsum is simply dummy text of the printing and typesetting industry.
+	Lorem Ipsum has been the industry's standard dummy text ever since the 1500s,
+	when an unknown printer took a galley of type and scrambled it to make a type specimen book. 
+	It has survived not only five centuries, but also the leap into electronic typesetting, 
+	remaining essentially unchanged. It was popularised in the 1960s with the release of 
+	Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker 
+	including versions of Lorem Ipsum.
 
+	Why do we use it?
+	It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout.
+	The point of using Lorem Ipsum is that it has a more-or-less normal distribution of letters, 
+	as opposed to using 'Content here, content here', making it look like readable English. 
+	Many desktop publishing packages and web page editors now use Lorem Ipsum as their default model text, 
+	and a search for 'lorem ipsum' will uncover many web sites still in their infancy. 
+	Various versions have evolved over the years, sometimes by accident, 
+	sometimes on purpose (injected humour and the like).
+
+	Where does it come from?
+	Contrary to popular belief, Lorem Ipsum is not simply random text. 
+	It has roots in a piece of classical Latin literature from 45 BC,
+	making it over 2000 years old. Richard McClintock, a Latin professor at Hampden-Sydney College in Virginia, 
+	looked up one of the more obscure Latin words, consectetur, from a Lorem Ipsum passage, 
+	and going through the cites of the word in classical literature, discovered the undoubtable source. 
+	Lorem Ipsum comes from sections 1.10.32 and 1.10.33 of \"de Finibus Bonorum et Malorum\" (The Extremes of Good and Evil) by Cicero, written in 45 BC. This book is a treatise on the theory of ethics, very popular during the Renaissance. The first line of Lorem Ipsum, \"Lorem ipsum dolor sit amet..\", comes from a line in section 1.10.32.
+
+	The standard chunk of Lorem Ipsum used since the 1500s is reproduced below for those interested. Sections 1.10.32 and 1.10.33 from \"de Finibus Bonorum et Malorum\" by Cicero are also reproduced in their exact original form, accompanied by English versions from the 1914 translation by H. Rackham.
+
+	Where can I get some?
+	There are many variations of passages of Lorem Ipsum available, but the majority have suffered alteration in some form, by injected humour, or randomised words which don't look even slightly believable. If you are going to use a passage of Lorem Ipsum, you need to be sure there isn't anything embarrassing hidden in the middle of text. All the Lorem Ipsum generators on the Internet tend to repeat predefined chunks as necessary, making this the first true generator on the Internet. It uses a dictionary of over 200 Latin words, combined with a handful of model sentence structures, to generate Lorem Ipsum which looks reasonable. The generated Lorem Ipsum is therefore always free from repetition, injected humour, or non-characteristic words etc.`
+	a := characters.GetNewArea()
+	w := ogl.GetWindowWidth()
+	h := ogl.GetWindowHeight()
+	fontSize := 12
+	a.SetFontSize(fontSize)
+	a.SetFontColor(0xFEFEFEFF)
+	a.SetHeight(h * 5)
+	a.SetWidth(w * 5)
+	a.SetPosition(0, -4*h+1)
+	a.SetViewPortHeight(h)
+	a.SetViewPortWidth(w)
+	a.SetText(text)
 	ogl.Init(false)
 	defer ogl.Close()
 	ogl.OnKeypress(ogl.KEY_ESC, func() {
 		ogl.CloseWindow()
 	})
 
-	w := ogl.GetWindowWidth()
-	h := ogl.GetWindowHeight()
-	fontSize := 27
-	codes := characters.GetAvailableCharCodes()
-	x := -9
-	for k := 1; k < 3; k++ {
-		for j := 0; j < 9; j++ {
-			for i := 0; i < 54; i++ {
-				r := codes[mlib.GetRandomBtw(0, len(codes)-1)]
-				size := mlib.GetRandomBtw(9, fontSize)
-				ch := characters.GetNew(rune(r), x, h+mlib.GetRandomBtw(0, h*3), getColor(size)).SetCharacterSize(size)
-				ch.SetRotationSpeed(2 * math.Pi / float64(mlib.GetRandomBtw(30, 360)))
-				ch.SetFallingSpeed(getFallingSpeed(size))
-				chrs = append(chrs, ch)
-			}
-			x += mlib.GetRandomBtw(k*9, (k+j+1)*9) + mlib.GetRandomBtw(k, 9-j+k) + 9*k + 9*j
-			if x > w {
-				for {
-					if x < w {
-						break
-					}
-					x -= mlib.GetRandomBtw(0, w)
-				}
-			}
-		}
-	}
-	numChrs := len(chrs)
-	fmt.Println("num chars:", numChrs)
+	ogl.OnKeypress(ogl.KEY_RIGHT, func() {
+		a.MoveView(1, 0)
+	})
+
+	ogl.OnKeypress(ogl.KEY_LEFT, func() {
+		a.MoveView(-1, 0)
+	})
+
+	ogl.OnKeypress(ogl.KEY_UP, func() {
+		a.MoveView(0, 1)
+	})
+
+	ogl.OnKeypress(ogl.KEY_DOWN, func() {
+		a.MoveView(0, -1)
+	})
+
+	ogl.OnKeydown(ogl.KEY_RIGHT, func() {
+		a.MoveView(1, 0)
+	})
+
+	ogl.OnKeydown(ogl.KEY_LEFT, func() {
+		a.MoveView(-1, 0)
+	})
+
+	ogl.OnKeydown(ogl.KEY_UP, func() {
+		a.MoveView(0, 1)
+	})
+
+	ogl.OnKeydown(ogl.KEY_DOWN, func() {
+		a.MoveView(0, -1)
+	})
+
 	for {
 		if ogl.IsExit() {
 			break
 		}
 		ogl.Draw(func() {
+			vpx, vpy := a.GetViewPortPosition()
+			vpw, vph := a.GetViewPortWidthHeight()
 			//defer timer("inside draw")()
-			for i := 0; i < numChrs; i++ {
-				ch := chrs[i]
-				y := ch.Y
-
-				ch.Run()
-				if y+chrs[i].GetMaxCharacterHeight() < 0 {
-					ch.X += mlib.GetRandomBtw(0, 1)
-					if ch.X > w {
-						for {
-							if ch.X < w {
-								break
-							}
-							ch.X -= mlib.GetRandomBtw(9, 18)
-						}
-					}
-					ch.Y = h + ch.GetHeight() + mlib.Rand(h)
-				}
+			for _, ch := range a.GetCharacters() {
+				ch.ShowInViewPort(vpx, vpy, vpw, vph)
 			}
 		})
 	}
-}
-
-func getFallingSpeed(size int) int {
-	switch size - 9 {
-	case 18:
-		return 6
-	case 17:
-		return 5
-	case 16:
-		return 5
-	case 15:
-		return 4
-	case 14:
-		return 4
-	case 13:
-		return 4
-	case 12:
-		return 3
-	case 11:
-		return 3
-	case 10:
-		return 3
-	case 9:
-		return 3
-	case 8:
-		return 2
-	case 7:
-		return 2
-	case 6:
-		return 2
-	case 5:
-		return 2
-	case 4:
-		return 2
-	case 3:
-		return 1
-	case 2:
-		return 1
-	case 1:
-		return 1
-	case 0:
-		return 1
-	}
-
-	return 1
-}
-
-func getColor(n int) uint32 {
-	switch n - 9 {
-	case 18:
-		return 0x91D374FF
-	case 17:
-		return 0x89CA6EFF
-	case 16:
-		return 0x80C066FF
-	case 15:
-		return 0x77B65FFF
-	case 14:
-		return 0x6EAC58FF
-	case 13:
-		return 0x65A251FF
-	case 12:
-		return 0x5C9849FF
-	case 11:
-		return 0x538E42FF
-	case 10:
-		return 0x4A843BFF
-	case 9:
-		return 0x38702DFF
-	case 8:
-		return 0x2F6625FF
-	case 7:
-		return 0x265C1EFF
-	case 6:
-		return 0x1D5217FF
-	case 5:
-		return 0x144810FF
-	case 4:
-		return 0x0B3E08FF
-	case 3:
-		return 0x023401FF
-	case 2:
-		return 0x002A00FF
-	case 1:
-		return 0x001600FF
-	case 0:
-		return 0x000D00FF
-	}
-
-	return 0x000100ff
 }
 
 func timer(name string) func() {
@@ -189,30 +123,4 @@ func timer(name string) func() {
 	return func() {
 		fmt.Printf("%s took %v\n", name, time.Since(start))
 	}
-}
-
-func log(msgs ...interface{}) {
-	_, f, line, _ := runtime.Caller(1)
-	baseDir := ""
-	pwd, err := os.Getwd()
-	if err == nil {
-		baseDir = pwd
-	}
-
-	relativePath := strings.Replace(f, baseDir+"/", "", -1)
-	formatedMsg := fmt.Sprintln(time.Now().UTC().Format("15:04:05.999 02-01-2006"), fmt.Sprintf("%s:%d", relativePath, line), msgs)
-	fmt.Print(formatedMsg)
-}
-
-func logError(msgs ...interface{}) {
-	_, f, line, _ := runtime.Caller(1)
-	baseDir := ""
-	pwd, err := os.Getwd()
-	if err == nil {
-		baseDir = pwd
-	}
-
-	relativePath := strings.Replace(f, baseDir+"/", "", -1)
-	formatedMsg := fmt.Sprintln("*********ERROR", time.Now().UTC().Format("15:04:05.999 02-01-2006"), fmt.Sprintf("%s:%d", relativePath, line), msgs)
-	fmt.Print(formatedMsg)
 }

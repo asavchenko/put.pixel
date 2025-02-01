@@ -99,14 +99,14 @@ func SignInt(n int) int {
 */
 func GetBezierCoords2(a, b Point2D, c Point2D, numberOfSteps int) []Point2D {
 	result := make([]Point2D, 0)
-	// x = a.X * (1 - t)^2 + 2 * c.X * (1 - t) * t + b.X * t^2
-	// y = a.Y * (1 - t)^2 + 2 * c.Y * (1 - t) * t + b.Y * t^2,
+	// x = a.x * (1 - t)^2 + 2 * c.x * (1 - t) * t + b.x * t^2
+	// y = a.y * (1 - t)^2 + 2 * c.y * (1 - t) * t + b.y * t^2,
 	d := float64(1) / float64(numberOfSteps)
 	for i := 0; i < numberOfSteps; i++ {
 		t := float64(i) * d
 		//result = append(result, Point2D{
-		//	X: a.X*(1-t)*(1-t) + 2*c.X*(1-t)*t + b.X*t*t,
-		//	Y: a.Y*(1-t)*(1-t) + 2*c.Y*(1-t)*t + b.Y*t*t,
+		//	x: a.x*(1-t)*(1-t) + 2*c.x*(1-t)*t + b.x*t*t,
+		//	y: a.y*(1-t)*(1-t) + 2*c.y*(1-t)*t + b.y*t*t,
 		//})
 		t1 := (1 - t) * (1 - t)
 		t2 := t * t
@@ -115,7 +115,7 @@ func GetBezierCoords2(a, b Point2D, c Point2D, numberOfSteps int) []Point2D {
 			X: a.X*t1 + c.X*t3 + b.X*t2,
 			Y: a.Y*t1 + c.Y*t3 + b.Y*t2,
 		}
-		//fmt.Println(p.X, p.Y, t)
+		//fmt.Println(p.x, p.y, t)
 		result = append(result, p)
 	}
 	result = append(result, b)
@@ -132,14 +132,14 @@ func GetBezierCoords2(a, b Point2D, c Point2D, numberOfSteps int) []Point2D {
 */
 func GetBezierCoords3(a, b Point2D, c, d Point2D, numberOfSteps int) []Point2D {
 	result := make([]Point2D, 0)
-	// x = a.X * (1 - t)^3 + 3 * c.X * (1 - t)^2 * t + d.X * 3 * (1-t) * t^2 + b.X * t^3
-	// y = a.Y * (1 - t)^3 + 3 * c.Y * (1 - t)^2 * t + d.Y * 3 * (1-t) * t^2 + b.Y * t^3
+	// x = a.x * (1 - t)^3 + 3 * c.x * (1 - t)^2 * t + d.x * 3 * (1-t) * t^2 + b.x * t^3
+	// y = a.y * (1 - t)^3 + 3 * c.y * (1 - t)^2 * t + d.y * 3 * (1-t) * t^2 + b.y * t^3
 	e := float64(1 / numberOfSteps)
 	for i := 0; i < numberOfSteps; i++ {
 		t := float64(i) * e
 		//result = append(result, Point2D{
-		//	X: a.X*(1-t)*(1-t)*(1-t) + 3*c.X*(1-t)*(1-t)*t + d.X*3*(1-t)*t*t + b.X*t*t*t,
-		//	Y: a.Y*(1-t)*(1-t)*(1-t) + 3*c.Y*(1-t)*(1-t)*t + d.Y*3*(1-t)*t*t + b.Y*t*t*t,
+		//	x: a.x*(1-t)*(1-t)*(1-t) + 3*c.x*(1-t)*(1-t)*t + d.x*3*(1-t)*t*t + b.x*t*t*t,
+		//	y: a.y*(1-t)*(1-t)*(1-t) + 3*c.y*(1-t)*(1-t)*t + d.y*3*(1-t)*t*t + b.y*t*t*t,
 		//})
 
 		//t1 := (1 - t) * (1 - t) * (1 - t)
