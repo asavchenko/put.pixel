@@ -5,23 +5,22 @@ import (
 	"assa.com/put.pixel/src/characters/utf8"
 )
 
-type triggerPoint struct {
-	x, y int
-	r, c int
-}
-
 type area struct {
-	isFirstLoad bool
-	ch          int // height btw two text rows
-	color       uint32
-	fontSize    int
-	x, y        int
-	w, h        int
-	nw, nh      int
-	tp          [2][2]triggerPoint
-	chrs        []*Chr
-	text        string
-	vp          *viewPort
+	ch        int // height btw two text rows
+	color     uint32
+	fontSize  int
+	nw, nh    int
+	minRow    int
+	maxRow    int
+	minColumn int
+	maxColumn int
+	curRow    int
+	curColumn int
+	r         []int
+	c         []int
+	chrs      []*Chr
+	text      string
+	vp        *viewPort
 }
 
 type viewPort struct {
@@ -36,11 +35,6 @@ func GetNewArea() *area {
 func (a *area) MoveView(dx, dy int) {
 	a.vp.x += dx
 	a.vp.y += dy
-	//log.Println(a.vp.x, a.vp.y)
-	//log.Println(a.tp[0][0].x, a.tp[0][0].y)
-	//log.Println(a.tp[0][1].x, a.tp[0][1].y)
-	//log.Println(a.tp[1][0].x, a.tp[1][0].y)
-	//log.Println(a.tp[1][1].x, a.tp[1][1].y)
 
 	if a.vp.x < 0 {
 		a.vp.x = 0 // there is no text, it's the left limit, a starting position
@@ -48,19 +42,57 @@ func (a *area) MoveView(dx, dy int) {
 	if a.vp.y > 0 {
 		a.vp.y = 0 // there is no text to go further, we are at the beginning of it
 	}
-}
+	// detect if new load is needed
+	// 		load
+	i := a.curColumn - 9
+	if i < 0 {
+		i = 0
+	}
 
-func (a *area) SetPosition(x, y int) {
-	a.x = x
-	a.y = y
-}
+	for {
+		if i >= len(a.c) {
+			a.curColumn = i
+			break
+		}
+		if a.c[i] >= a.vp.x {
+			a.curColumn = i
+			break
+		}
+		i++
+	}
 
-func (a *area) SetWidth(w int) {
-	a.w = w
-}
+	j := a.curRow - 9
+	if j < 0 {
+		j = 0
+	}
 
-func (a *area) SetHeight(h int) {
-	a.h = h
+	for {
+		if j >= len(a.r) {
+			a.curRow = j
+			break
+		}
+		if a.r[j] < a.vp.y {
+			a.curRow = j
+			break
+		}
+		j++
+	}
+	if a.curRow < a.minRow+a.nh && a.minRow > 0 {
+		a.load()
+		return
+	}
+	if a.curRow > a.maxRow-a.nh {
+		a.load()
+		return
+	}
+	if a.curColumn > a.maxColumn-a.nw {
+		a.load()
+		return
+	}
+	if a.curColumn < a.minColumn+a.nw && a.minColumn > 0 {
+		a.load()
+		return
+	}
 }
 
 func (a *area) SetViewPortWidth(w int) {
@@ -74,6 +106,7 @@ func (a *area) SetViewPortHeight(h int) {
 	a.nh = a.vp.h / a.ch
 	log.Println("nh:", a.nh)
 }
+
 func (a *area) SetFontSize(fontSize int) {
 	a.fontSize = fontSize
 	a.ch = GetLineSpaceSize(fontSize) + GetCharacterHeight(fontSize)
@@ -99,20 +132,19 @@ func (a *area) SetText(text string) {
 	a.init()
 }
 
+func (a *area) init() {
+	a.curRow = 0
+	a.curColumn = 0
+	a.r = make([]int, 0)
+	a.c = make([]int, 0)
+	a.load()
+}
+
 func (a *area) GetCharacters() []*Chr {
-	vp := a.vp
 	result := make([]*Chr, 0)
-	if vp.inViewPort(a.tp[0][0].x, a.tp[0][0].y) {
-		a.load(a.tp[0][0])
-	} else if vp.inViewPort(a.tp[0][1].x, a.tp[0][1].y) {
-		a.load(a.tp[0][1])
-	} else if vp.inViewPort(a.tp[1][0].x, a.tp[1][0].y) {
-		a.load(a.tp[1][0])
-	} else if vp.inViewPort(a.tp[1][1].x, a.tp[1][1].y) {
-		a.load(a.tp[1][1])
-	}
+
 	for _, ch := range a.chrs {
-		if vp.inViewPortCh(ch) {
+		if a.vp.inViewPortCh(ch) {
 			result = append(result, ch)
 		}
 	}
@@ -120,82 +152,46 @@ func (a *area) GetCharacters() []*Chr {
 	return result
 }
 
-func (a *area) load(tp triggerPoint) {
-	log.Println("loading more, trigger point reached")
-	minColumn := tp.c - a.nw*5/2
-	if minColumn < 0 {
-		minColumn = 0
+func (a *area) load() {
+	a.minRow = a.curRow - a.nh*5/2
+	if a.minRow < 0 {
+		a.minRow = 0
 	}
-	maxColumn := minColumn + a.nw*5
-
-	minRow := tp.r - a.nh*5/2
-	if minRow < 0 {
-		minRow = 0
+	a.maxRow = a.minRow + a.nh*5
+	a.minColumn = a.curColumn - a.nw*5/2
+	if a.minColumn < 0 {
+		a.minColumn = 0
 	}
-	maxRow := minRow + a.nh*5
-
-	xmin := tp.x - a.w*5/2
-	if xmin < 0 {
-		xmin = 0
-	}
-	xmax := xmin + a.w*5
-
-	ymax := tp.y + a.h*5/2
-	if ymax > 0 {
-		ymax = 0
-	}
-	ymin := ymax - a.w*5
-	log.Println("nw:", a.nw, "nh:", a.nh)
-	log.Println("xmin:", xmin, "ymin:", ymin, "xmax:", xmax, "ymax:", ymax, "minRow:", minRow, "maxRow:", maxRow, "minColumn:", minColumn, "maxColumn:", maxColumn)
-	a.x = xmin
-	a.y = ymin
-	// recalculate trigger Points:
-	a.tp[0][0].x = xmin + a.vp.w
-	a.tp[0][0].y = ymin + a.vp.h
-	a.tp[0][0].r = maxRow - a.nh
-	a.tp[0][0].c = minColumn + a.nw
-
-	a.tp[0][1].x = xmin + a.vp.w
-	a.tp[0][1].y = ymax - a.vp.h
-	a.tp[0][1].r = minRow + a.nh
-	a.tp[0][1].c = minColumn + a.nw
-
-	a.tp[1][0].x = xmax - a.vp.w
-	a.tp[1][0].y = ymin + a.vp.h
-	a.tp[1][0].r = maxRow - a.nh
-	a.tp[1][0].c = maxColumn - a.nw
-
-	a.tp[1][1].x = xmax - a.vp.w
-	a.tp[1][1].y = ymax - a.vp.h
-	a.tp[1][1].r = minRow + a.nh
-	a.tp[1][1].c = maxColumn - a.nw
-
-	a.chrs = make([]*Chr, 0)
+	a.maxColumn = a.minColumn + a.nw*5
+	// recalculate trigger next load area:
+	a.chrs = make([]*Chr, 0, a.nw*a.nh*25)
 	y := a.vp.h - a.ch
-	x := xmin
+	x := 0
 	i := 0
 	isNewLine := true
-	curRow := minRow
-	curColumn := minColumn
+	curRow := 0
+	curColumn := 0
+	runes := []rune(a.text)
 	for {
-		if i > len([]rune(a.text))-1 {
+		if i > len(runes)-1 {
 			break
 		}
-		r := []rune(a.text)[i]
+		r := runes[i]
 		if int(r) == 10 {
 			y -= a.ch
-			if y < 0 {
-				break
-			}
 			// new line
 			isNewLine = true
-			if int([]rune(a.text)[i+1]) == 9 {
+			if int(runes[i+1]) == 9 {
 				i += 2
 			} else {
 				i += 1
 			}
+			if curRow >= len(a.r) {
+				a.r = append(a.r, y)
+			}
 			curRow++
-			if curRow > maxRow {
+
+			if curRow > a.maxRow {
 				break
 			}
 			continue
@@ -205,39 +201,34 @@ func (a *area) load(tp triggerPoint) {
 			curColumn = 0
 			x = 0
 		}
-		if curRow < minRow {
+		if curRow < a.minRow {
 			continue
 		}
-		if curColumn < minColumn || curColumn > maxColumn {
+		if curColumn < a.minColumn || curColumn > a.maxColumn {
+			// we still need to advance x properly
+			ch := GetNew(r, x, y, a.color).SetCharacterSize(a.fontSize)
+			if curColumn >= len(a.c) {
+				a.c = append(a.c, x)
+			} else if x < a.c[curColumn] {
+				a.c[curColumn] = x
+			}
+			curColumn++
+			x += ch.GetWidth()
 			continue
 		}
 
-		//log.Println("ch.X:", x, "ch.Y:", y, "ch:", r)
 		ch := GetNew(r, x, y, a.color).SetCharacterSize(a.fontSize)
 		a.chrs = append(a.chrs, ch)
 		isNewLine = false
+		if curColumn >= len(a.c) {
+			a.c = append(a.c, x)
+		} else if x < a.c[curColumn] {
+			a.c[curColumn] = x
+		}
 		x += ch.GetWidth()
 		curColumn++
 	}
-}
-
-func (a *area) init() {
-	if a.isFirstLoad {
-		a.load(triggerPoint{
-			x: a.vp.x,
-			y: a.vp.y,
-			r: 0,
-			c: 0,
-		})
-		return
-	}
-	a.load(triggerPoint{
-		x: (a.tp[0][0].x + a.tp[0][1].x) / 2,
-		y: (a.tp[0][0].y + a.tp[0][1].y) / 2,
-		r: (a.tp[0][0].r + a.tp[0][1].r) / 2,
-		c: (a.tp[0][0].c + a.tp[1][0].c) / 2,
-	})
-	return
+	log.Println("num characters:", len(a.chrs))
 }
 
 func (a *area) GetViewPortPosition() (int, int) {
@@ -253,7 +244,7 @@ func (vp *viewPort) inViewPort(x, y int) bool {
 }
 
 func (vp *viewPort) inViewPortCh(ch *Chr) bool {
-	return !(ch.x+ch.GetWidth() <= vp.x || ch.x >= vp.x+vp.w || ch.y+ch.GetHeight() <= 0 || ch.y >= vp.y+vp.h)
+	return !(ch.x+ch.GetWidth() <= vp.x || ch.x >= vp.x+vp.w || ch.y+ch.GetHeight() <= vp.y || ch.y >= vp.y+vp.h)
 }
 
 func GetCharacterWidth(size int) int {
