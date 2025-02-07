@@ -153,18 +153,18 @@ func (a *area) GetCharacters() []*Chr {
 }
 
 func (a *area) load() {
-	a.minRow = a.curRow - a.nh*5/2
+	a.minRow = a.curRow - a.nh*5
 	if a.minRow < 0 {
 		a.minRow = 0
 	}
-	a.maxRow = a.minRow + a.nh*5
-	a.minColumn = a.curColumn - a.nw*5/2
+	a.maxRow = a.minRow + a.nh*10
+	a.minColumn = a.curColumn - a.nw*5
 	if a.minColumn < 0 {
 		a.minColumn = 0
 	}
-	a.maxColumn = a.minColumn + a.nw*5
+	a.maxColumn = a.minColumn + a.nw*10
 	// recalculate trigger next load area:
-	a.chrs = make([]*Chr, 0, a.nw*a.nh*25)
+	a.chrs = make([]*Chr, 0, a.nw*a.nh*100)
 	y := a.vp.h - a.ch
 	x := 0
 	i := 0

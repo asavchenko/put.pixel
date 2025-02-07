@@ -21,16 +21,19 @@ var pixelArr *[width * height * 4]byte
 // var pixelArr []byte
 var window *glfw.Window
 var buffers [1]uint32
-var index int
+
+// var index int
 var lastX, lastY int
 var lastWidth, lastHeight int
 var keyCallbacks map[string]map[glfw.Key][]func()
+var mouseLeftCallbacks []func(x, y int)
 var keyCombinationCallbacks map[string]map[string]interface{}
 var pressedKeys []glfw.Key
 var lookupTable []int
 
 func init() {
 	keyCallbacks = make(map[string]map[glfw.Key][]func(), 0)
+	mouseLeftCallbacks = make([]func(x, y int), 0)
 	keyCombinationCallbacks = make(map[string]map[string]interface{}, 0)
 	pressedKeys = make([]glfw.Key, 0)
 	lookupTable = make([]int, height)
@@ -74,6 +77,8 @@ func Init(fullScreen bool) {
 	lastX, lastY = window.GetPos()
 	lastWidth, lastHeight = window.GetSize()
 	window.SetKeyCallback(onKeyPress)
+	window.SetMouseButtonCallback(onMouseButtonEvent)
+	window.SetCursorPosCallback(onMouseMoveEvent)
 }
 
 func CloseWindow() {

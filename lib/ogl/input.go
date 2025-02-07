@@ -140,6 +140,62 @@ const (
 	KEY_MODIFIER_NUM_LOCK  = glfw.ModNumLock
 )
 
+var x, y int
+var getXCh chan chan int
+var setXCh chan int
+var setYCh chan int
+var getYCh chan chan int
+
+func init() {
+	getXCh = make(chan chan int, 1024)
+	setXCh = make(chan int, 1024)
+	setYCh = make(chan int, 1024)
+	getYCh = make(chan chan int, 1024)
+
+	go func() {
+		for {
+			select {
+			case outputTo := <-getXCh:
+				outputTo <- x
+			case newX := <-setXCh:
+				x = newX
+			}
+		}
+	}()
+	go func() {
+		for {
+			select {
+			case outputTo := <-getYCh:
+				outputTo <- y
+			case newY := <-setYCh:
+				y = newY
+			}
+		}
+	}()
+}
+
+func setX(newX int) {
+	setXCh <- newX
+}
+
+func setY(newY int) {
+	setYCh <- newY
+}
+
+func getX() int {
+	readFrom := make(chan int, 1)
+	getXCh <- readFrom
+
+	return <-readFrom
+}
+
+func getY() int {
+	readFrom := make(chan int, 1)
+	getYCh <- readFrom
+
+	return <-readFrom
+}
+
 func processInput(window *glfw.Window) {
 
 }
@@ -174,6 +230,28 @@ func OnCombination(keys []interface{}, callback func()) {
 		"keys":     typedKeys,
 		"callback": callback,
 	}
+}
+
+func OnMouseLeftClick(callback func(x, y int)) {
+	mouseLeftCallbacks = append(mouseLeftCallbacks, callback)
+}
+
+func onMouseButtonEvent(w *glfw.Window, button glfw.MouseButton, action glfw.Action, mods glfw.ModifierKey) {
+	if button == glfw.MouseButtonLeft && action == glfw.Press {
+		x, y := GetMousePosition()
+		for _, f := range mouseLeftCallbacks {
+			f(x, y)
+		}
+	}
+}
+
+func onMouseMoveEvent(w *glfw.Window, xpos float64, ypos float64) {
+	setX(int(xpos))
+	setY(int(ypos))
+}
+
+func GetMousePosition() (int, int) {
+	return getX(), Ym - getY()
 }
 
 func onKeyPress(w *glfw.Window, keyPressed glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
