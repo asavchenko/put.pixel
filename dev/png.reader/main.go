@@ -536,10 +536,11 @@ func decodeLZ77(cr bitreader.BitReader, litTree, distTree map[string]int) ([]byt
 				return nil, err
 			}
 			idx := len(uncompressedTreeData) - d
+			startIdx := idx
 			for i := 0; i < l; i++ {
 				idx++
 				if idx > len(uncompressedTreeData)-1 {
-					idx = len(uncompressedTreeData) - d
+					idx = startIdx
 				}
 				uncompressedTreeData = append(uncompressedTreeData, uncompressedTreeData[idx])
 			}
