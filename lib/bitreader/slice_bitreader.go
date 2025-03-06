@@ -2,33 +2,28 @@ package bitreader
 
 import (
 	"fmt"
-	"os"
 )
 
-type bitReader struct {
+type sliceBitReader struct {
 	b   byte
-	idx int // global index in the file
+	idx int // global index in the arr
 	bi  int // bit index in the current byte
-	f   *os.File
+	arr []byte
 }
 
-func GetNew(r *os.File) *bitReader {
-	return &bitReader{0, 0, 0, r}
+func GetNewSliceBitReader(data []byte) *sliceBitReader {
+	return &sliceBitReader{0, 0, 0, data}
 }
 
-func (br *bitReader) GetBit() (byte, error) {
+func (br *sliceBitReader) GetBit() (byte, error) {
+	//fmt.Println("byte idx:", br.idx, "bit idx:", br.bi)
 	if br.idx == 0 {
 		br.idx += 1
-		data := make([]byte, 1)
-
-		n, err := br.f.Read(data)
-		if err != nil {
-			return 0, err
-		}
-		if n != 1 {
+		if len(br.arr) < 1 {
+			fmt.Println("the length of the byte reader array is 0")
 			return 0, fmt.Errorf("unexpected result")
 		}
-		br.b = data[0]
+		br.b = br.arr[0]
 		br.bi += 1
 		return br.b & 0b00000001, nil
 	}
@@ -57,26 +52,22 @@ func (br *bitReader) GetBit() (byte, error) {
 	case 7:
 		res := (br.b & 0b10000000) >> 7
 		br.bi = 0
-		br.idx += 1
-		data := make([]byte, 1)
-
-		n, err := br.f.Read(data)
-		if err != nil {
-			return 0, err
-		}
-		if n != 1 {
+		if len(br.arr)-1 < br.idx {
+			fmt.Println("the byte reader index is", br.idx, "but the length of the byte reader array is", len(br.arr))
 			return 0, fmt.Errorf("unexpected result")
 		}
-		br.b = data[0]
+		br.b = br.arr[br.idx]
+		br.idx += 1
+
 		return res, nil
 	}
 
 	return 0, fmt.Errorf("index is out of range")
 }
 
-func (br *bitReader) GetBits(n int) ([]byte, error) {
+func (br *sliceBitReader) GetBits(n int) ([]byte, error) {
 	if n < 1 {
-		return make([]byte, 0), nil
+		return make([]byte, 0), fmt.Errorf("index is out of range")
 	}
 	var err error
 	result := make([]byte, n)
@@ -90,7 +81,7 @@ func (br *bitReader) GetBits(n int) ([]byte, error) {
 	return result, nil
 }
 
-func (br *bitReader) GetByte() (byte, error) {
+func (br *sliceBitReader) GetByte() (byte, error) {
 	bits, err := br.GetBits(8)
 	if err != nil {
 		return 0, err
@@ -106,9 +97,9 @@ func (br *bitReader) GetByte() (byte, error) {
 	return res, nil
 }
 
-func (br *bitReader) GetBytes(n int) ([]byte, error) {
+func (br *sliceBitReader) GetBytes(n int) ([]byte, error) {
 	if n < 1 {
-		return make([]byte, 0), nil
+		return make([]byte, 0), fmt.Errorf("index is out of range")
 	}
 	res := make([]byte, n)
 	var err error
@@ -120,4 +111,12 @@ func (br *bitReader) GetBytes(n int) ([]byte, error) {
 	}
 
 	return res, nil
+}
+
+func (br *sliceBitReader) GetNthBitInByte(b byte, position int) byte {
+	return getNthBitInByte(b, position)
+}
+
+func (br *sliceBitReader) ToInt(s []byte) int {
+	return toInt(s)
 }
