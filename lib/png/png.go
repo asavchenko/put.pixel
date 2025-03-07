@@ -518,7 +518,6 @@ func GetNew(pathToImage string) (PNGReader, error) {
 						if _, exists := distDictionary[int(uncompressedDistTreeData[i])]; !exists {
 							distDictionary[int(uncompressedDistTreeData[i])] = 0
 						}
-						log(i, ":", uncompressedDistTreeData[i])
 						distDictionary[int(uncompressedDistTreeData[i])] += 1
 						distFreq[i] = int(uncompressedDistTreeData[i])
 					}
@@ -596,7 +595,7 @@ func decodeLZ77(cr bitreader.BitReader, litTree, distTree map[string]int) ([]byt
 			if err != nil {
 				return nil, err
 			}
-			idx := len(uncompressedTreeData) - d
+			idx := len(uncompressedTreeData) - d - 1
 			startIdx := idx
 			for i := 0; i < l; i++ {
 				idx++
@@ -903,7 +902,6 @@ func getDistance(cr bitreader.BitReader, tree map[string]int) (int, error) {
 		if val, exists := tree[key]; !exists {
 			continue
 		} else {
-			log("the val is", val, key)
 			switch val {
 			case 0:
 				return 1, nil
@@ -986,16 +984,6 @@ func __getValWithExtraBits(cr bitreader.BitReader, startVal int, numExtraBits in
 
 }
 
-func reverseSliceByte(a []byte) []byte {
-	s := make([]byte, len(a))
-	copy(s, a)
-	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
-		s[i], s[j] = s[j], s[i]
-	}
-
-	return s
-}
-
 func decodeTree(dist int, cr bitreader.BitReader, canonicalHuffmanCodingMapForLengthsTree map[string]int) ([]byte, error) {
 	maxLen := 0
 	for s, _ := range canonicalHuffmanCodingMapForLengthsTree {
@@ -1024,7 +1012,6 @@ func decodeTree(dist int, cr bitreader.BitReader, canonicalHuffmanCodingMapForLe
 		if val, exists := canonicalHuffmanCodingMapForLengthsTree[key]; !exists {
 			continue
 		} else {
-			log("the val is", val, key)
 			key = ""
 			if byte(val) < 16 {
 				uncompressedTreeData = append(uncompressedTreeData, byte(val))
@@ -1191,4 +1178,14 @@ func getBaseDir() string {
 	}
 
 	return pwd
+}
+
+func reverseSliceByte(a []byte) []byte {
+	s := make([]byte, len(a))
+	copy(s, a)
+	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
+		s[i], s[j] = s[j], s[i]
+	}
+
+	return s
 }
