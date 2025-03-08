@@ -2,6 +2,10 @@ package bitreader
 
 import (
 	"fmt"
+	"os"
+	"runtime"
+	"strings"
+	"time"
 )
 
 type sliceBitReader struct {
@@ -12,7 +16,11 @@ type sliceBitReader struct {
 }
 
 func GetNewSliceBitReader(data []byte) *sliceBitReader {
-	return &sliceBitReader{0, 0, 0, data}
+	dat := make([]byte, len(data))
+	for i, b := range data {
+		dat[i] = b
+	}
+	return &sliceBitReader{0, 0, 0, dat}
 }
 
 func (br *sliceBitReader) GetBit() (byte, error) {
@@ -20,7 +28,7 @@ func (br *sliceBitReader) GetBit() (byte, error) {
 	if br.idx == 0 {
 		br.idx += 1
 		if len(br.arr) < 1 {
-			fmt.Println("the length of the byte reader array is 0")
+			logError("the length of the byte reader array is 0")
 			return 0, fmt.Errorf("unexpected result")
 		}
 		br.b = br.arr[0]
@@ -53,7 +61,7 @@ func (br *sliceBitReader) GetBit() (byte, error) {
 		res := (br.b & 0b10000000) >> 7
 		br.bi = 0
 		if len(br.arr)-1 < br.idx {
-			fmt.Println("the byte reader index is", br.idx, "but the length of the byte reader array is", len(br.arr))
+			logError("the byte reader index is", br.idx, "but the length of the byte reader array is", len(br.arr))
 			return 0, fmt.Errorf("unexpected result")
 		}
 		br.b = br.arr[br.idx]
@@ -74,6 +82,7 @@ func (br *sliceBitReader) GetBits(n int) ([]byte, error) {
 	for i := 0; i < n; i++ {
 		result[i], err = br.GetBit()
 		if err != nil {
+			logError(err, "on getting", n, "bits from the stream")
 			return result, err
 		}
 	}
@@ -84,6 +93,7 @@ func (br *sliceBitReader) GetBits(n int) ([]byte, error) {
 func (br *sliceBitReader) GetByte() (byte, error) {
 	bits, err := br.GetBits(8)
 	if err != nil {
+		logError(err)
 		return 0, err
 	}
 
@@ -106,6 +116,7 @@ func (br *sliceBitReader) GetBytes(n int) ([]byte, error) {
 	for i := 0; i < n; i++ {
 		res[i], err = br.GetByte()
 		if err != nil {
+			logError(err)
 			return res, err
 		}
 	}
@@ -119,4 +130,31 @@ func (br *sliceBitReader) GetNthBitInByte(b byte, position int) byte {
 
 func (br *sliceBitReader) ToInt(s []byte) int {
 	return toInt(s)
+}
+
+func log(msgs ...interface{}) {
+	_, f, line, _ := runtime.Caller(1)
+	baseDir := getBaseDir()
+
+	relativePath := strings.Replace(f, baseDir+"/", "", -1)
+	formatedMsg := fmt.Sprintln(time.Now().UTC().Format("15:04:05.999 02-01-2006"), fmt.Sprintf("%s:%d", relativePath, line), msgs)
+	fmt.Print(formatedMsg)
+}
+
+func logError(msgs ...interface{}) {
+	_, f, line, _ := runtime.Caller(1)
+	baseDir := getBaseDir()
+
+	relativePath := strings.Replace(f, baseDir+"/", "", -1)
+	formatedMsg := fmt.Sprintln("*********ERROR", time.Now().UTC().Format("15:04:05.999 02-01-2006"), fmt.Sprintf("%s:%d", relativePath, line), msgs)
+	fmt.Print(formatedMsg)
+}
+
+func getBaseDir() string {
+	pwd, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+
+	return pwd
 }

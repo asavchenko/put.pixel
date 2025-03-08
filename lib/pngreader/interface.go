@@ -1,4 +1,4 @@
-package png
+package pngreader
 
 type (
 	PNGReader interface {
