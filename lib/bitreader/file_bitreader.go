@@ -1,19 +1,56 @@
 package bitreader
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 )
 
 type fileBitReader struct {
-	b   byte
-	idx int // global index in the file
-	bi  int // bit index in the current byte
-	f   *os.File
+	b    byte
+	idx  int // global index in the file
+	bi   int // bit index in the current byte
+	file *os.File
 }
 
 func GetNewFileBitReader(r *os.File) *fileBitReader {
 	return &fileBitReader{0, 0, 0, r}
+}
+
+func (br *fileBitReader) HasMoreData() bool {
+	fi, err := br.file.Stat()
+	if err != nil {
+		return false
+	}
+
+	return br.idx < int(fi.Size())
+}
+
+func (br *fileBitReader) GetRawData() []byte {
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(br.file)
+	br.file.Seek(0, 0)
+
+	return buf.Bytes()
+}
+
+func (br *fileBitReader) GoToNextByte() error {
+	if br.bi == 0 {
+		return nil
+	}
+	data := make([]byte, 1)
+	br.bi = 0
+	n, err := br.file.Read(data)
+	if err != nil {
+		return err
+	}
+	if n != 1 {
+		return fmt.Errorf("unexpected result")
+	}
+	br.b = data[0]
+	br.idx += 1
+
+	return nil
 }
 
 func (br *fileBitReader) GetBit() (byte, error) {
@@ -21,7 +58,7 @@ func (br *fileBitReader) GetBit() (byte, error) {
 		br.idx += 1
 		data := make([]byte, 1)
 
-		n, err := br.f.Read(data)
+		n, err := br.file.Read(data)
 		if err != nil {
 			return 0, err
 		}
@@ -60,7 +97,7 @@ func (br *fileBitReader) GetBit() (byte, error) {
 		br.idx += 1
 		data := make([]byte, 1)
 
-		n, err := br.f.Read(data)
+		n, err := br.file.Read(data)
 		if err != nil {
 			return 0, err
 		}

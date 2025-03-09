@@ -8,6 +8,9 @@ type (
 		GetBytes(n int) ([]byte, error)
 		GetNthBitInByte(b byte, position int) byte
 		ToInt([]byte) int
+		GetRawData() []byte
+		GoToNextByte() error
+		HasMoreData() bool
 	}
 )
 
@@ -43,4 +46,14 @@ func getNthBitInByte(b byte, position int) byte {
 	}
 
 	return 0
+}
+
+func reverseSliceByte(a []byte) []byte {
+	s := make([]byte, len(a))
+	copy(s, a)
+	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
+		s[i], s[j] = s[j], s[i]
+	}
+
+	return s
 }

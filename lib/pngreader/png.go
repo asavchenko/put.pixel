@@ -1,6 +1,8 @@
 package pngreader
 
 import (
+	"bytes"
+	"compress/zlib"
 	"fmt"
 	"os"
 	"runtime"
@@ -22,6 +24,8 @@ type pngReader struct {
 	filterMethod      byte
 	interlaceMethod   byte
 	imgData           []byte
+	palette           [][]byte
+	bpp               int
 }
 
 func (reader *pngReader) Close() error {
@@ -56,12 +60,376 @@ func (reader *pngReader) GetInterlaceMethod() byte {
 	return reader.interlaceMethod
 }
 
-func (reader *pngReader) GetImageData() []byte {
+func (reader *pngReader) GetBytesPerPixel() int {
+	if reader.bpp != -1 {
+		return reader.bpp
+	}
+	reader.bpp = 1
+	switch reader.GetColorType() {
+	case 0: // Each pixel is a grayscale sample.
+		switch reader.GetBitDepth() {
+		case 1:
+			reader.bpp = 1
+		case 2:
+			reader.bpp = 1
+		case 4:
+			reader.bpp = 1
+		case 8:
+		case 16:
+			reader.bpp = 2
+			// *row++ = (png_byte)(color >> 8);
+			//*row++ = (png_byte)(color & 0xFF);
+		}
+	case 2: // Each pixel is an R,G,B triple.
+		switch reader.GetBitDepth() {
+		case 8:
+			reader.bpp = 3
+		case 16:
+			reader.bpp = 6
+		}
+	case 3: // Each pixel is a palette index; a PLTE chunk must appear.
+		return reader.bpp
+	case 4: // Each pixel is a grayscale sample, followed by an alpha sample..
+		switch reader.GetBitDepth() {
+		case 8:
+			reader.bpp = 2
+		case 16:
+			reader.bpp = 4
+		}
+	case 6: // Each pixel is an R,G,B triple, followed by an alpha sample.
+		switch reader.GetBitDepth() {
+		case 8:
+			reader.bpp = 4
+		case 16:
+			reader.bpp = 8
+		}
+	}
+
+	return reader.bpp
+}
+
+func (reader *pngReader) GetImageData() ([]byte, error) {
+	width := reader.GetImageWidth()
+	height := reader.GetImageHeight()
+	log("width:", width, "height:", height)
+	// Bit depth is a single-byte integer giving the number of bits per sample or per palette index (not per pixel).
+	// Valid values are 1, 2, 4, 8, and 16, although not all values are allowed for all color types.
+	// Color type is a single-byte integer that describes the interpretation of the image data.
+	// Color type codes represent sums of the following values:
+	// 1 (palette used),
+	// 2 (color used),
+	// and 4 (alpha channel used)
+	// Valid values are 0, 2, 3, 4, and 6.
+	rowLen := width
+	bpp := 1
+	switch reader.GetColorType() {
+	case 0: // Each pixel is a grayscale sample.
+		switch reader.GetBitDepth() {
+		case 1:
+			log("it's a black and white image")
+			bpp = 1
+			rowLen = width / 8
+		case 2:
+			log("it's a grayscale image with 4 shades")
+			bpp = 1
+			rowLen = width / 4
+		case 4:
+			log("it's a grayscale image with 16 shades")
+			bpp = 1
+			rowLen = width / 2
+		case 8:
+			log("it's a grayscale image with 256 shades")
+		case 16:
+			log("it's a grayscale image with 65536 shades")
+			log("which means we will need to cut it under 256 shades")
+			bpp = 2
+			rowLen = 2 * width
+			// *row++ = (png_byte)(color >> 8);
+			//*row++ = (png_byte)(color & 0xFF);
+		}
+	case 2: // Each pixel is an R,G,B triple.
+		switch reader.GetBitDepth() {
+		case 8:
+			log("it's a RGB image with 256 shades")
+			bpp = 3
+			rowLen = 3 * width
+		case 16:
+			log("it's a RGB image with 65536 shades")
+			bpp = 6
+			rowLen = 6 * width
+		}
+	case 3: // Each pixel is a palette index; a PLTE chunk must appear.
+		switch reader.GetBitDepth() {
+		case 1:
+			log("it's a palette image with 2 colors")
+		case 2:
+			log("it's a palette image with 4 colors")
+		case 4:
+			log("it's a palette image with 16 colors")
+		case 8:
+			log("it's a palette image with 256 colors")
+		}
+	case 4: // Each pixel is a grayscale sample, followed by an alpha sample..
+		switch reader.GetBitDepth() {
+		case 8:
+			log("it's a grayscale with alpha image with 256 shades")
+			rowLen = 2 * width
+			bpp = 2
+		case 16:
+			log("it's a grayscale with alpha image with 65536 shades")
+			rowLen = 4 * width
+			bpp = 4
+		}
+	case 6: // Each pixel is an R,G,B triple, followed by an alpha sample.
+		switch reader.GetBitDepth() {
+		case 8:
+			log("it's a RGB with alpha image with 256 shades")
+			rowLen = 4 * width
+			bpp = 4
+		case 16:
+			log("it's a RGB with alpha image with 65536 shades")
+			rowLen = 8 * width
+			bpp = 8
+		}
+	}
+	return reader.filterImage(rowLen, bpp, height)
+}
+
+func (reader *pngReader) GetPalette() [][]byte {
+	return reader.palette
+}
+
+func (reader *pngReader) filterImage(rowLen int, bpp int, height int) ([]byte, error) {
+	filteredData := make([]byte, rowLen*height*bpp)
+	br := bitreader.GetNewSliceBitReader(reader.GetRawImageData())
+	log("row length is", rowLen)
+	i := 0
+	for {
+		if i >= height-1 {
+			break
+		}
+		if err := br.GoToNextByte(); err != nil {
+			logError(err)
+			break
+		}
+		filterType, err := br.GetByte()
+		if err != nil {
+			return filteredData, err
+		}
+		scanLine, err := br.GetBytes(rowLen)
+		if err != nil {
+			return filteredData, err
+		}
+		scanLine = scanLine
+
+		prevScanLine := make([]byte, rowLen)
+		if i > 0 {
+			prevScanLine = filteredData[(i-1)*rowLen : i*rowLen]
+		}
+		x := i * rowLen
+		switch filterType {
+		case 0:
+			log(printBits(filterType), i, "Filter Type None")
+			for k, v := range scanLine {
+				filteredData[x+k] = v
+			}
+		case 1:
+			log(printBits(filterType), i, "Filter Type Sub")
+			// The Sub() filter transmits the difference between each byte and the value of the corresponding byte of the prior pixel.
+
+			// To compute the Sub() filter, apply the following formula to each byte of the scanline:
+
+			// Sub(x) = Raw(x) - Raw(x-bpp)
+			// where x ranges from zero to the number of bytes representing the scanline minus one,
+			// Raw() refers to the raw data byte at that byte position in the scanline,
+			// and bpp is defined as the number of bytes per complete pixel, rounding up to one.
+			//	For example, for color type 2 with a bit depth of 16, bpp is equal to 6 (three samples, two bytes per sample);
+			//	for color type 0 with a bit depth of 2, bpp is equal to 1 (rounding up);
+			//	for color type 4 with a bit depth of 16, bpp is equal to 4 (two-byte grayscale sample, plus two-byte alpha sample).
+
+			// Note this computation is done for each byte, regardless of bit depth.
+			// In a 16-bit image, each MSB is predicted from the preceding MSB and each LSB from the preceding LSB,
+			// because of the way that bpp is defined.
+
+			// Unsigned arithmetic modulo 256 is used, so that both the inputs and outputs fit into bytes. The sequence of Sub values is transmitted as the filtered scanline.
+
+			// For all x < 0, assume Raw(x) = 0.
+
+			// To reverse the effect of the Sub() filter after decompression, output the following value:
+
+			// Sub(x) + Raw(x-bpp) (computed mod 256),
+			// where Raw() refers to the bytes already decoded.
+
+			for j := 0; j < len(scanLine); j++ {
+				el := scanLine[j]
+				if j >= bpp {
+					el += filteredData[x+j-bpp]
+				}
+				filteredData[x+j] = el
+			}
+		case 2:
+			log(printBits(filterType), i, "Filter Type Up")
+			// The Up() filter is just like the Sub() filter except that the pixel immediately above the current pixel, rather than just to its left, is used as the predictor.
+
+			// To compute the Up() filter, apply the following formula to each byte of the scanline:
+
+			// Up(x) = Raw(x) - Prior(x)
+			// where x ranges from zero to the number of bytes representing the scanline minus one, Raw() refers to the raw data byte at that byte position in the scanline,
+			// and Prior(x) refers to the unfiltered bytes of the prior scanline.
+
+			// Note this is done for each byte, regardless of bit depth. Unsigned arithmetic modulo 256 is used,
+			// so that both the inputs and outputs fit into bytes. The sequence of Up values is transmitted as the filtered scanline.
+
+			// On the first scanline of an image (or of a pass of an interlaced image), assume Prior(x) = 0 for all x.
+
+			// To reverse the effect of the Up() filter after decompression, output the following value:
+
+			// Up(x) + Prior(x) (computed mod 256),
+			// where Prior() refers to the decoded bytes of the prior scanline.
+			for j := 0; j < len(scanLine); j++ {
+				filteredData[x+j] = scanLine[j] + prevScanLine[j]
+			}
+		case 3:
+			log(printBits(filterType), i, "Filter Type Average")
+			// The Average() filter uses the average of the two neighboring pixels (left and above) to predict the value of a pixel.
+
+			// To compute the Average() filter, apply the following formula to each byte of the scanline:
+
+			// Average(x) = Raw(x) - floor((Raw(x-bpp)+Prior(x))/2)
+			// where x ranges from zero to the number of bytes representing the scanline minus one,
+			// Raw() refers to the raw data byte at that byte position in the scanline,
+			// Prior() refers to the unfiltered bytes of the prior scanline, and bpp is defined as for the Sub() filter.
+
+			// Note this is done for each byte, regardless of bit depth. The sequence of Average values is transmitted as the filtered scanline.
+
+			// The subtraction of the predicted value from the raw byte must be done modulo 256,
+			// so that both the inputs and outputs fit into bytes. However, the sum Raw(x-bpp)+Prior(x) must be formed without overflow
+			// (using at least nine-bit arithmetic). floor() indicates that the result of the division is rounded to the next lower integer
+			// if fractional; in other words, it is an integer division or right shift operation.
+
+			// For all x < 0, assume Raw(x) = 0. On the first scanline of an image (or of a pass of an interlaced image), assume Prior(x) = 0 for all x.
+
+			// To reverse the effect of the Average() filter after decompression, output the following value:
+
+			// Average(x) + floor((Raw(x-bpp)+Prior(x))/2)
+			// where the result is computed mod 256, but the prediction is calculated in the same way as for encoding.
+			// Raw() refers to the bytes already decoded, and Prior() refers to the decoded bytes of the prior scanline.
+			for j := 0; j < len(scanLine); j++ {
+				a := int(prevScanLine[j])
+				b := 0
+				if j >= bpp {
+					b = int(filteredData[x+j-bpp])
+				}
+
+				filteredData[x+j] = scanLine[j] + byte((a+b)>>1)
+			}
+		case 4:
+			log(printBits(filterType), i, "Filter Type Paeth")
+			// The Paeth() filter computes a simple linear function of the three neighboring pixels
+			// (left, above, upper left), then chooses as predictor the neighboring pixel closest
+			//	to the computed value. This technique is due to Alan W. Paeth [PAETH].
+
+			// To compute the Paeth() filter, apply the following formula to each byte of the scanline:
+			//
+			// Paeth(x) = Raw(x) - PaethPredictor(Raw(x-bpp), Prior(x), Prior(x-bpp))
+			//	where x ranges from zero to the number of bytes representing the scanline minus one,
+			//	Raw() refers to the raw data byte at that byte position in the scanline,
+			//	Prior() refers to the unfiltered bytes of the prior scanline, and bpp is defined as for the Sub() filter.
+			//
+			// Note this is done for each byte, regardless of bit depth.
+			// Unsigned arithmetic modulo 256 is used, so that both the inputs and outputs fit into bytes.
+			// The sequence of Paeth values is transmitted as the filtered scanline.
+			//
+			// The PaethPredictor() function is defined by the following pseudocode:
+			//
+			// function PaethPredictor (a, b, c)
+			//		begin
+			//			; a = left, b = above, c = upper left
+			//			p := a + b - c        ; initial estimate
+			//			pa := abs(p - a)      ; distances to a, b, c
+			//			pb := abs(p - b)
+			//			pc := abs(p - c)
+			//			; return nearest of a,b,c,
+			//			; breaking ties in order a,b,c.
+			//			if pa <= pb AND pa <= pc then
+			//				return a
+			//			else if pb <= pc then
+			//				return b
+			//			else
+			//				return c
+			//		end
+			//	The calculations within the PaethPredictor() function must be performed exactly, without overflow.
+			//	Arithmetic modulo 256 is to be used only for the final step of subtracting the function result from the target byte value.
+			//
+			// Note that the order in which ties are broken is critical and must not be altered.
+			// The tie break order is: pixel to the left, pixel above, pixel to the upper left.
+			// (This order differs from that given in Paeth's article.)
+			//
+			// For all x < 0, assume Raw(x) = 0 and Prior(x) = 0.
+			//	On the first scanline of an image (or of a pass of an interlaced image), assume Prior(x) = 0 for all x.
+			//
+			//	To reverse the effect of the Paeth() filter after decompression, output the following value:
+			//
+			//	Paeth(x) + PaethPredictor(Raw(x-bpp), Prior(x), Prior(x-bpp)) (computed mod 256),
+			//	where Raw() and Prior() refer to bytes already decoded.
+			//	Exactly the same PaethPredictor() function is used by both encoder and decoder.
+			for j := 0; j < len(scanLine); j++ {
+				a := byte(0)
+				if j >= bpp {
+					a = filteredData[x+j-bpp]
+				}
+
+				b := prevScanLine[j]
+
+				c := byte(0)
+				if j >= bpp {
+					c = prevScanLine[j-bpp]
+				}
+
+				filteredData[x+j] = scanLine[j] + byte(paeth(int(a), int(b), int(c)))
+			}
+		default:
+			logError("unexpected filter type", filterType)
+			return filteredData, fmt.Errorf("unexpected filter type %d %d", i, filterType)
+			//return fmt.Errorf("unexpected filter type %d %s %s", i, printBits(filterType), printBytes(scanLine))
+		}
+		i++
+	}
+
+	return filteredData, nil
+}
+
+func paeth(a, b, c int) int {
+	p := a + b - c // extend the gradient
+	// return whatever input is closest to p
+	pa := abs(p - a)
+	pb := abs(p - b)
+	pc := abs(p - c)
+	if pa <= pb && pa <= pc {
+		return a
+	}
+	if pb <= pc {
+		return b
+	}
+
+	return c
+}
+
+func abs(a int) int {
+	if a < 0 {
+		return -a
+	}
+
+	return a
+}
+
+func (reader *pngReader) GetRawImageData() []byte {
 	return reader.imgData
 }
 
 func GetNew(pathToImage string) (PNGReader, error) {
 	reader := &pngReader{}
+	reader.bpp = -1
 	reader.imgData = make([]byte, 0)
 	pngFile, err := os.Open(pathToImage)
 	if err != nil {
@@ -166,8 +534,37 @@ func GetNew(pathToImage string) (PNGReader, error) {
 			return reader, nil
 		case "PLTE":
 			log("it's PLTE")
-			if _, err := r.GetBytes(chunkLen + 4); err != nil {
+			if data, err := r.GetBytes(chunkLen + 4); err != nil {
 				return nil, err
+			} else {
+				// The PLTE chunk contains from 1 to 256 palette entries, each a three-byte series of the form:
+
+				//Red:   1 byte (0 = black, 255 = red)
+				//Green: 1 byte (0 = black, 255 = green)
+				//Blue:  1 byte (0 = black, 255 = blue)
+				br := bitreader.GetNewSliceBitReader(data)
+				reader.palette = make([][]byte, 0)
+				for {
+					if !br.HasMoreData() {
+						break
+					}
+					if len(data) == 0 {
+						break
+					}
+					r, err := br.GetByte()
+					if err != nil {
+						return nil, err
+					}
+					g, err := br.GetByte()
+					if err != nil {
+						return nil, err
+					}
+					b, err := br.GetByte()
+					if err != nil {
+						return nil, err
+					}
+					reader.palette = append(reader.palette, []byte{r, g, b})
+				}
 			}
 			continue
 		case "IDAT":
@@ -505,7 +902,6 @@ func (reader *pngReader) handleDynamicHuffman(cr bitreader.BitReader) error {
 	//	means repeat 0 for 11 - 138 times depending on the next 7 bits.
 	//	if you see 18, read the next 7 bits and add the integer to the number 11 and you get repeat count.
 
-	log("reading lit tree data:")
 	uncompressedLitTreeData, err := decodeTree(hlit, cr, canonicalHuffmanCodingMapForLengthsTree)
 	if err != nil {
 		logError(err)
@@ -520,7 +916,6 @@ func (reader *pngReader) handleDynamicHuffman(cr bitreader.BitReader) error {
 		litDictionary[int(uncompressedLitTreeData[i])] += 1
 		litFreq[i] = int(uncompressedLitTreeData[i])
 	}
-	log("reading dist tree data:")
 	uncompressedDistTreeData, err := decodeTree(hdist, cr, canonicalHuffmanCodingMapForLengthsTree)
 	if err != nil {
 		logError(err)
@@ -550,11 +945,23 @@ func (reader *pngReader) handleDynamicHuffman(cr bitreader.BitReader) error {
 	d, err := decodeLZ77(cr, litTree, distTree)
 	if err != nil {
 		logError(err)
-
 		return err
 	}
 	log("decoded LZ77", len(d))
-	reader.imgData = append(reader.imgData, d...)
+	rawData := cr.GetRawData()
+	br := bytes.NewBuffer(rawData)
+	r, err := zlib.NewReader(br)
+	output := make([]byte, len(rawData))
+	r.Read(output)
+	for i := 0; i < len(output); i++ {
+		if output[i] != d[i] {
+			log(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>output:", output[i], "d:", d[i])
+		} else {
+			//fmt.Print(".")
+		}
+	}
+	reader.imgData = d
+
 	return nil
 }
 
@@ -608,11 +1015,11 @@ func (reader *pngReader) handleFixedHuffman(cr bitreader.BitReader) error {
 	d, err := decodeLZ77(cr, litTree, distTree)
 	if err != nil {
 		logError(err)
-
 		return err
 	}
 	log("decoded LZ77", len(d))
 	reader.imgData = append(reader.imgData, d...)
+
 	return nil
 }
 
@@ -632,28 +1039,30 @@ func (reader *pngReader) handleNoCompression(cr bitreader.BitReader) error {
 	//
 	// 00101110 10110111
 	// 00110001 11110011
-	lenBits := make([]byte, 0)
-	for i := 0; i < 16; i++ {
-		if b, err := cr.GetBit(); err != nil {
-			logError(err)
-			return err
-		} else {
-			lenBits = append(lenBits, b)
-		}
-	}
-	if _, err := cr.GetBytes(2); err != nil {
+	if err := cr.GoToNextByte(); err != nil {
+		logError(err)
 		return err
 	}
-	l := cr.ToInt(reverseSliceByte(lenBits))
-	log("l:", l)
+	l := 0
+	if lbytes, err := cr.GetBytes(2); err != nil {
+		logError(err)
+		return err
+	} else {
+		log("l:", l, printBytes(lbytes))
+		l = int(lbytes[0]) + int(lbytes[1])<<8
+	}
+
+	if clbytes, err := cr.GetBytes(2); err != nil {
+		return err
+	} else {
+		log("cl:", int(clbytes[0])+int(clbytes[1])<<8, printBytes(clbytes))
+	}
 	d, err := cr.GetBytes(l)
 	if err != nil {
 		logError(err)
-
-		return err
 	}
 	log("read", len(d), "bytes of uncompressed data")
-	reader.imgData = append(reader.imgData, d...)
+	reader.imgData = d
 
 	return nil
 }
@@ -686,10 +1095,11 @@ func decodeLZ77(cr bitreader.BitReader, litTree, distTree map[string]int) ([]byt
 		if val, exists := litTree[key]; !exists {
 			continue
 		} else {
-			//log(len(uncompressedTreeData), "the val is", val, key)
+			//log("the val is", val, key)
 			key = ""
 			if val < 256 {
 				uncompressedTreeData = append(uncompressedTreeData, byte(val))
+				//uncompressedTreeData = append([]byte{byte(val)}, uncompressedTreeData...)
 				continue
 			}
 			if val == 256 { // STOP
@@ -700,14 +1110,16 @@ func decodeLZ77(cr bitreader.BitReader, litTree, distTree map[string]int) ([]byt
 				logError(err, val)
 				return nil, err
 			}
-			idx := len(uncompressedTreeData) - d - 1
+			idx := len(uncompressedTreeData) - d
 			startIdx := idx
 			for i := 0; i < l; i++ {
-				idx++
 				if idx >= len(uncompressedTreeData) {
+					fmt.Println("WTF                                                  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
 					idx = startIdx
 				}
 				uncompressedTreeData = append(uncompressedTreeData, uncompressedTreeData[idx])
+				//uncompressedTreeData = append([]byte{uncompressedTreeData[idx]}, uncompressedTreeData...)
+				idx++
 			}
 		}
 	}
@@ -815,6 +1227,7 @@ func getDistanceLength(cr bitreader.BitReader, val int, distTree map[string]int)
 		logError(err, val, startVal, numExtraBits)
 		return 0, 0, err
 	}
+
 	return d, l, nil
 }
 
@@ -1170,4 +1583,22 @@ func getBaseDir() string {
 	}
 
 	return pwd
+}
+
+func printBits(b byte) string {
+	// to binary representation
+	str := strconv.FormatInt(int64(b), 2)
+	// with leading zeros
+	delta := 8 - len(str)
+	for i := 0; i < delta; i++ {
+		str = "0" + str
+	}
+	// from string to byte array
+	chunk := make([]byte, 0)
+	for _, ds := range str {
+		d, _ := strconv.Atoi(string(ds))
+		chunk = append(chunk, byte(d))
+	}
+
+	return fmt.Sprint(chunk)
 }

@@ -23,6 +23,31 @@ func GetNewSliceBitReader(data []byte) *sliceBitReader {
 	return &sliceBitReader{0, 0, 0, dat}
 }
 
+func (br *sliceBitReader) GoToNextByte() error {
+	if br.bi == 0 {
+		return nil
+	}
+	log("byte idx:", br.idx, "bit idx:", br.bi, "going to the next byte")
+	br.idx++
+	br.bi = 0
+	if len(br.arr) <= br.idx {
+		logError("the byte reader index is", br.idx, "but the length of the byte reader array is", len(br.arr))
+		return fmt.Errorf("unexpected result")
+	}
+	br.b = br.arr[br.idx]
+
+	return nil
+}
+
+func (br *sliceBitReader) GetRawData() []byte {
+	data := make([]byte, len(br.arr))
+	for i, b := range br.arr {
+		data[i] = b
+	}
+
+	return data
+}
+
 func (br *sliceBitReader) GetBit() (byte, error) {
 	//fmt.Println("byte idx:", br.idx, "bit idx:", br.bi)
 	if br.idx == 0 {
@@ -130,6 +155,10 @@ func (br *sliceBitReader) GetNthBitInByte(b byte, position int) byte {
 
 func (br *sliceBitReader) ToInt(s []byte) int {
 	return toInt(s)
+}
+
+func (br *sliceBitReader) HasMoreData() bool {
+	return br.idx < len(br.arr)
 }
 
 func log(msgs ...interface{}) {
