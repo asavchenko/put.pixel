@@ -17,6 +17,28 @@ func GetNewFileBitReader(r *os.File) *fileBitReader {
 	return &fileBitReader{0, 0, 0, r}
 }
 
+func (br *fileBitReader) GetPosition() int {
+	return br.idx
+}
+
+func (br *fileBitReader) GetRemainingData() ([]byte, error) {
+	fi, err := br.file.Stat()
+	if err != nil {
+		return nil, err
+	}
+
+	data := make([]byte, fi.Size()-int64(br.idx))
+	n, err := br.file.Read(data)
+	if err != nil {
+		return nil, err
+	}
+	if n != len(data) {
+		return nil, fmt.Errorf("unexpected result")
+	}
+
+	return data, nil
+}
+
 func (br *fileBitReader) HasMoreData() bool {
 	fi, err := br.file.Stat()
 	if err != nil {

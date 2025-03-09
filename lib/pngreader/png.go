@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/zlib"
 	"fmt"
+	"io"
 	"os"
 	"runtime"
 	"sort"
@@ -201,7 +202,9 @@ func (reader *pngReader) GetPalette() [][]byte {
 
 func (reader *pngReader) filterImage(rowLen int, bpp int, height int) ([]byte, error) {
 	filteredData := make([]byte, rowLen*height*bpp)
-	br := bitreader.GetNewSliceBitReader(reader.GetRawImageData())
+	data := reader.GetRawImageData()
+	log("decode", len(data))
+	br := bitreader.GetNewSliceBitReader(data)
 	log("row length is", rowLen)
 	i := 0
 	for {
@@ -212,7 +215,7 @@ func (reader *pngReader) filterImage(rowLen int, bpp int, height int) ([]byte, e
 			logError(err)
 			break
 		}
-		filterType, err := br.GetByte()
+		filterType, err := br.GetBits(8)
 		if err != nil {
 			return filteredData, err
 		}
@@ -227,14 +230,14 @@ func (reader *pngReader) filterImage(rowLen int, bpp int, height int) ([]byte, e
 			prevScanLine = filteredData[(i-1)*rowLen : i*rowLen]
 		}
 		x := i * rowLen
-		switch filterType {
+		switch int(filterType[0] + filterType[1]*2 + filterType[2]*4) {
 		case 0:
-			log(printBits(filterType), i, "Filter Type None")
+			log(filterType, i, "Filter Type None")
 			for k, v := range scanLine {
 				filteredData[x+k] = v
 			}
 		case 1:
-			log(printBits(filterType), i, "Filter Type Sub")
+			log(filterType, i, "Filter Type Sub")
 			// The Sub() filter transmits the difference between each byte and the value of the corresponding byte of the prior pixel.
 
 			// To compute the Sub() filter, apply the following formula to each byte of the scanline:
@@ -268,7 +271,7 @@ func (reader *pngReader) filterImage(rowLen int, bpp int, height int) ([]byte, e
 				filteredData[x+j] = el
 			}
 		case 2:
-			log(printBits(filterType), i, "Filter Type Up")
+			log(filterType, i, "Filter Type Up")
 			// The Up() filter is just like the Sub() filter except that the pixel immediately above the current pixel, rather than just to its left, is used as the predictor.
 
 			// To compute the Up() filter, apply the following formula to each byte of the scanline:
@@ -290,7 +293,7 @@ func (reader *pngReader) filterImage(rowLen int, bpp int, height int) ([]byte, e
 				filteredData[x+j] = scanLine[j] + prevScanLine[j]
 			}
 		case 3:
-			log(printBits(filterType), i, "Filter Type Average")
+			log(filterType, i, "Filter Type Average")
 			// The Average() filter uses the average of the two neighboring pixels (left and above) to predict the value of a pixel.
 
 			// To compute the Average() filter, apply the following formula to each byte of the scanline:
@@ -324,7 +327,7 @@ func (reader *pngReader) filterImage(rowLen int, bpp int, height int) ([]byte, e
 				filteredData[x+j] = scanLine[j] + byte((a+b)>>1)
 			}
 		case 4:
-			log(printBits(filterType), i, "Filter Type Paeth")
+			log(filterType, i, "Filter Type Paeth")
 			// The Paeth() filter computes a simple linear function of the three neighboring pixels
 			// (left, above, upper left), then chooses as predictor the neighboring pixel closest
 			//	to the computed value. This technique is due to Alan W. Paeth [PAETH].
@@ -389,8 +392,8 @@ func (reader *pngReader) filterImage(rowLen int, bpp int, height int) ([]byte, e
 				filteredData[x+j] = scanLine[j] + byte(paeth(int(a), int(b), int(c)))
 			}
 		default:
-			logError("unexpected filter type", filterType)
-			return filteredData, fmt.Errorf("unexpected filter type %d %d", i, filterType)
+			logError(filterType, "unexpected filter type")
+			return filteredData, fmt.Errorf("unexpected filter type %d", i)
 			//return fmt.Errorf("unexpected filter type %d %s %s", i, printBits(filterType), printBytes(scanLine))
 		}
 		i++
@@ -444,7 +447,6 @@ func GetNew(pathToImage string) (PNGReader, error) {
 	header, err := r.GetBytes(8)
 	if err != nil {
 		logError(err)
-
 		return nil, err
 	}
 	reader.width = 0                   //  4 bytes
@@ -572,7 +574,7 @@ func GetNew(pathToImage string) (PNGReader, error) {
 			if data, err := r.GetBytes(chunkLen + 4); err != nil {
 				return nil, err
 			} else {
-				idatChunks = append(idatChunks, data...)
+				idatChunks = append(idatChunks, data[:chunkLen]...)
 				continue
 			}
 		default:
@@ -677,6 +679,12 @@ func (reader *pngReader) handleIDATChunks(idatChunks []byte) error {
 		logError(err)
 		return err
 	}
+	if fdict[0] == 1 {
+		if _, err := cr.GetBytes(4); err != nil {
+			logError(err)
+			return err
+		}
+	}
 	flevel, err := cr.GetBits(2)
 	if err != nil {
 		logError(err)
@@ -685,42 +693,47 @@ func (reader *pngReader) handleIDATChunks(idatChunks []byte) error {
 	log("FCHECK", fcheck[0], fcheck[1], fcheck[2], fcheck[3], fcheck[4])
 	log("FDICT", fdict[0])
 	log("FLEVEL", flevel[0], flevel[1])
-	headerBits, err := cr.GetBits(3)
-	if err != nil {
-		logError(err)
-		return err
-	}
-	//Each block of compressed data begins with 3 header bits containing the following data:
-	//first bit
-	//next 2 bits
-	// BFINAL - BFINAL is set if and only if this is the last block of the data set.
-	// BTYPE - specifies how the data are compressed, as follows:
-	//				00 - no compression
-	//				01 - compressed with fixed Huffman codes
-	//				10 - compressed with dynamic Huffman codes
-	//				11 - reserved (error)
-	log("HEADER", headerBits[0], headerBits[1], headerBits[2])
-	switch fmt.Sprint(headerBits[2]) + fmt.Sprint(headerBits[1]) {
-	case "00": // - no compression
-		if err := reader.handleNoCompression(cr); err != nil {
+	for {
+		if !cr.HasMoreData() {
+			break
+		}
+		headerBits, err := cr.GetBits(3)
+		if err != nil {
 			logError(err)
 			return err
 		}
-		return nil
-	case "01": // - compressed with fixed Huffman codes
-		if err := reader.handleFixedHuffman(cr); err != nil {
-			logError(err)
-			return err
+		//Each block of compressed data begins with 3 header bits containing the following data:
+		//first bit
+		//next 2 bits
+		// BFINAL - BFINAL is set if and only if this is the last block of the data set.
+		// BTYPE - specifies how the data are compressed, as follows:
+		//				00 - no compression
+		//				01 - compressed with fixed Huffman codes
+		//				10 - compressed with dynamic Huffman codes
+		//				11 - reserved (error)
+		log("HEADER", headerBits[0], headerBits[1], headerBits[2])
+		switch fmt.Sprint(headerBits[2]) + fmt.Sprint(headerBits[1]) {
+		case "00": // - no compression
+			if _, err := reader.handleNoCompression(cr); err != nil {
+				logError(err)
+				return err
+			}
+		case "01": // - compressed with fixed Huffman codes
+			if _, err := reader.handleFixedHuffman(cr); err != nil {
+				logError(err)
+				return err
+			}
+		case "10": // - compressed with dynamic Huffman codes
+			if _, err := reader.handleDynamicHuffman(cr); err != nil {
+				logError(err)
+				return err
+			}
+		case "11": // - reserved (error)
+			return fmt.Errorf("unexpected input")
 		}
-		return nil
-	case "10": // - compressed with dynamic Huffman codes
-		if err := reader.handleDynamicHuffman(cr); err != nil {
-			logError(err)
-			return err
+		if headerBits[0] == 1 {
+			break
 		}
-		return nil
-	case "11": // - reserved (error)
-		return fmt.Errorf("unexpected input")
 	}
 
 	return nil
@@ -798,14 +811,13 @@ func (reader *pngReader) handleIHDRChunk(r bitreader.BitReader, chunkLen int) er
 	return nil
 }
 
-func (reader *pngReader) handleDynamicHuffman(cr bitreader.BitReader) error {
+func (reader *pngReader) handleDynamicHuffman(cr bitreader.BitReader) ([]byte, error) {
 	// finally compressed data follows
 	// The first section of a GZIP-compressed block is three integers indicating the number of length codes, the number of literal codes, and the number of distance codes.
 	nLit, err := cr.GetBits(5)
 	if err != nil {
 		logError(err)
-
-		return err
+		return nil, err
 	}
 	hlit := int(nLit[0]+nLit[1]*2+nLit[2]*2*2+nLit[3]*2*2*2+nLit[4]*2*2*2*2) + 257
 	log("the number of literal codes:", nLit[0], nLit[1], nLit[2], nLit[3], nLit[4], "=", hlit)
@@ -813,24 +825,21 @@ func (reader *pngReader) handleDynamicHuffman(cr bitreader.BitReader) error {
 	nDist, err := cr.GetBits(5)
 	if err != nil {
 		logError(err)
-
-		return err
+		return nil, err
 	}
 	hdist := int(nDist[0]+nDist[1]*2+nDist[2]*2*2+nDist[3]*2*2*2+nDist[4]*2*2*2*2) + 1
 	log("the number of distance codes:", nDist[0], nDist[1], nDist[2], nDist[3], nDist[4], "=", hdist)
 	nLength, err := cr.GetBits(4)
 	if err != nil {
 		logError(err)
-
-		return err
+		return nil, err
 	}
 	nLen := int(nLength[0] + nLength[1]*2 + nLength[2]*2*2 + nLength[3]*2*2*2)
 	log("the number of length codes:", nLength[0], nLength[1], nLength[2], nLength[3], "=", nLen)
 	lengthCodes, err := cr.GetBits((nLen + 4) * 3)
 	if err != nil {
 		logError(err)
-
-		return err
+		return nil, err
 	}
 	lenDictionary := []int{16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15}
 	lenDictionaryMap := make(map[int]int, 0)
@@ -905,7 +914,7 @@ func (reader *pngReader) handleDynamicHuffman(cr bitreader.BitReader) error {
 	uncompressedLitTreeData, err := decodeTree(hlit, cr, canonicalHuffmanCodingMapForLengthsTree)
 	if err != nil {
 		logError(err)
-		return err
+		return nil, err
 	}
 	litDictionary := make(map[int]int, 0)
 	litFreq := make(map[int]int, 0)
@@ -919,7 +928,7 @@ func (reader *pngReader) handleDynamicHuffman(cr bitreader.BitReader) error {
 	uncompressedDistTreeData, err := decodeTree(hdist, cr, canonicalHuffmanCodingMapForLengthsTree)
 	if err != nil {
 		logError(err)
-		return err
+		return nil, err
 	}
 	distDictionary := make(map[int]int, 0)
 	distFreq := make(map[int]int, 0)
@@ -942,30 +951,34 @@ func (reader *pngReader) handleDynamicHuffman(cr bitreader.BitReader) error {
 	log("dist tree:", distTree)
 	log("-------------------")
 	log("starting to decompress")
-	d, err := decodeLZ77(cr, litTree, distTree)
+	d, err := reader.decodeLZ77(cr, litTree, distTree)
+	log("decoded LZ77", len(d))
 	if err != nil {
 		logError(err)
-		return err
+		return nil, err
 	}
-	log("decoded LZ77", len(d))
-	rawData := cr.GetRawData()
-	br := bytes.NewBuffer(rawData)
-	r, err := zlib.NewReader(br)
-	output := make([]byte, len(rawData))
-	r.Read(output)
-	for i := 0; i < len(output); i++ {
-		if output[i] != d[i] {
-			log(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>output:", output[i], "d:", d[i])
-		} else {
-			//fmt.Print(".")
-		}
-	}
-	reader.imgData = d
+	//log("decoded LZ77", len(d), cr.GetPosition(), len(cr.GetRawData())-cr.GetPosition())
+	//output, err := getDecompressedDataUsingZlib(cr.GetRawData())
+	//if err != nil {
+	//	logError(err)
+	//	return nil, err
+	//}
+	//if len(output) != len(d) {
+	//	log("bytesRead:", len(output), "len(d):", len(d))
+	//}
+	//for i := 0; i < len(d); i++ {
+	//	if output[i] != d[i] {
+	//		log(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>output:", output[i], "d:", d[i])
+	//	} else {
+	//		//fmt.Print(".")
+	//	}
+	//}
 
-	return nil
+	//reader.imgData = append(reader.imgData, d...)
+	return d, nil
 }
 
-func (reader *pngReader) handleFixedHuffman(cr bitreader.BitReader) error {
+func (reader *pngReader) handleFixedHuffman(cr bitreader.BitReader) ([]byte, error) {
 	// The Huffman codes for the two alphabets are fixed, and are not represented explicitly in the data. The Huff-
 	// man code lengths for the literal/length alphabet are:
 
@@ -1012,18 +1025,18 @@ func (reader *pngReader) handleFixedHuffman(cr bitreader.BitReader) error {
 		distTree[fmt.Sprintf("%05b", code)] = i
 		code += 1
 	}
-	d, err := decodeLZ77(cr, litTree, distTree)
+	d, err := reader.decodeLZ77(cr, litTree, distTree)
 	if err != nil {
 		logError(err)
-		return err
+		return nil, err
 	}
 	log("decoded LZ77", len(d))
 	reader.imgData = append(reader.imgData, d...)
 
-	return nil
+	return d, nil
 }
 
-func (reader *pngReader) handleNoCompression(cr bitreader.BitReader) error {
+func (reader *pngReader) handleNoCompression(cr bitreader.BitReader) ([]byte, error) {
 	// Any bits of input up to the next byte boundary are ignored. The rest of the block consists of the following
 	// information:
 	// 0  1   2   3   4...
@@ -1041,19 +1054,21 @@ func (reader *pngReader) handleNoCompression(cr bitreader.BitReader) error {
 	// 00110001 11110011
 	if err := cr.GoToNextByte(); err != nil {
 		logError(err)
-		return err
+		return nil, err
 	}
 	l := 0
 	if lbytes, err := cr.GetBytes(2); err != nil {
 		logError(err)
-		return err
+		return nil, err
 	} else {
 		log("l:", l, printBytes(lbytes))
 		l = int(lbytes[0]) + int(lbytes[1])<<8
 	}
 
 	if clbytes, err := cr.GetBytes(2); err != nil {
-		return err
+		logError(err)
+		return nil, nil
+		//return nil, err
 	} else {
 		log("cl:", int(clbytes[0])+int(clbytes[1])<<8, printBytes(clbytes))
 	}
@@ -1062,9 +1077,9 @@ func (reader *pngReader) handleNoCompression(cr bitreader.BitReader) error {
 		logError(err)
 	}
 	log("read", len(d), "bytes of uncompressed data")
-	reader.imgData = d
+	reader.imgData = append(reader.imgData, d...)
 
-	return nil
+	return d, nil
 }
 
 func buildNaturalOrderTree(codingMap map[int][]string, freq map[int]int) map[string]int {
@@ -1082,14 +1097,19 @@ func buildNaturalOrderTree(codingMap map[int][]string, freq map[int]int) map[str
 	return result
 }
 
-func decodeLZ77(cr bitreader.BitReader, litTree, distTree map[string]int) ([]byte, error) {
+func (reader *pngReader) decodeLZ77(cr bitreader.BitReader, litTree, distTree map[string]int) ([]byte, error) {
 	uncompressedTreeData := make([]byte, 0)
+	if len(reader.imgData) != 0 {
+		for _, b := range reader.imgData {
+			uncompressedTreeData = append(uncompressedTreeData, b)
+		}
+	}
 	key := ""
 	for {
 		b, err := cr.GetBit()
 		if err != nil {
 			logError(err)
-			return nil, err
+			return uncompressedTreeData, err
 		}
 		key += fmt.Sprint(b)
 		if val, exists := litTree[key]; !exists {
@@ -1103,12 +1123,13 @@ func decodeLZ77(cr bitreader.BitReader, litTree, distTree map[string]int) ([]byt
 				continue
 			}
 			if val == 256 { // STOP
+				log("STOP", cr.HasMoreData())
 				break
 			}
 			d, l, err := getDistanceLength(cr, val, distTree)
 			if err != nil {
 				logError(err, val)
-				return nil, err
+				return uncompressedTreeData, err
 			}
 			idx := len(uncompressedTreeData) - d
 			startIdx := idx
@@ -1118,11 +1139,12 @@ func decodeLZ77(cr bitreader.BitReader, litTree, distTree map[string]int) ([]byt
 					idx = startIdx
 				}
 				uncompressedTreeData = append(uncompressedTreeData, uncompressedTreeData[idx])
-				//uncompressedTreeData = append([]byte{uncompressedTreeData[idx]}, uncompressedTreeData...)
 				idx++
 			}
 		}
 	}
+
+	reader.imgData = uncompressedTreeData
 
 	return uncompressedTreeData, nil
 }
@@ -1601,4 +1623,19 @@ func printBits(b byte) string {
 	}
 
 	return fmt.Sprint(chunk)
+}
+
+func getDecompressedDataUsingZlib(data []byte) ([]byte, error) {
+	b := bytes.NewReader(data)
+	z, err := zlib.NewReader(b)
+	if err != nil {
+		return nil, err
+	}
+	defer z.Close()
+	p, err := io.ReadAll(z)
+	if err != nil {
+		return nil, err
+	}
+
+	return p, nil
 }

@@ -23,11 +23,23 @@ func GetNewSliceBitReader(data []byte) *sliceBitReader {
 	return &sliceBitReader{0, 0, 0, dat}
 }
 
+func (br *sliceBitReader) GetPosition() int {
+	return br.idx
+}
+
+func (br *sliceBitReader) GetRemainingData() ([]byte, error) {
+	if br.idx == 0 {
+		return br.arr, nil
+	}
+
+	return br.arr[br.idx:], nil
+}
+
 func (br *sliceBitReader) GoToNextByte() error {
 	if br.bi == 0 {
 		return nil
 	}
-	log("byte idx:", br.idx, "bit idx:", br.bi, "going to the next byte")
+	log("current byte is ", br.b, "byte idx:", br.idx, "bit idx:", br.bi, "going to the next byte")
 	br.idx++
 	br.bi = 0
 	if len(br.arr) <= br.idx {
@@ -35,6 +47,8 @@ func (br *sliceBitReader) GoToNextByte() error {
 		return fmt.Errorf("unexpected result")
 	}
 	br.b = br.arr[br.idx]
+
+	log("after the move it's byte idx:", br.idx, "bit idx:", br.bi, "next byte:", br.b)
 
 	return nil
 }
@@ -134,7 +148,10 @@ func (br *sliceBitReader) GetByte() (byte, error) {
 
 func (br *sliceBitReader) GetBytes(n int) ([]byte, error) {
 	if n < 1 {
-		return make([]byte, 0), fmt.Errorf("index is out of range")
+		return br.GetRemainingData()
+	}
+	if n > len(br.arr) {
+		n = len(br.arr)
 	}
 	res := make([]byte, n)
 	var err error

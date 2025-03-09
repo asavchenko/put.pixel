@@ -16,10 +16,10 @@ func init() {
 }
 
 func main() {
-	pathToPng := "sample.png"
-	//pathToPng := "goose.png"
+	//pathToPng := "sample.png"
+	pathToPng := "goose.png"
 	//pathToPng := "ChunkDataTooLarge.png"
-	//pathToPng := "face.png" // multiple IDAT chunks
+	//pathToPng := "face.png" // multiple IDAT chunk
 	//pathToPng := "download.png" // it's a palette image with 256 colors
 	//pathToPng := "logo5.png" // it's a RGB with alpha image with 256 shades
 
@@ -62,8 +62,8 @@ func main() {
 		}
 		ogl.Draw(func() {
 			for i := 0; i < pngReader.GetImageHeight(); i++ {
-				for j := 0; j < pngReader.GetImageWidth()*pngReader.GetBytesPerPixel(); j += pngReader.GetBytesPerPixel() {
-					index := i*pngReader.GetImageWidth()*pngReader.GetBytesPerPixel() + j
+				for j := 0; j < pngReader.GetImageWidth(); j += 1 {
+					index := i*pngReader.GetImageWidth()*pngReader.GetBytesPerPixel() + j*pngReader.GetBytesPerPixel()
 					if index >= len(imgData) {
 						break
 					}

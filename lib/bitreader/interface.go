@@ -6,11 +6,13 @@ type (
 		GetBits(n int) ([]byte, error)
 		GetByte() (byte, error)
 		GetBytes(n int) ([]byte, error)
+		GetRemainingData() ([]byte, error)
 		GetNthBitInByte(b byte, position int) byte
 		ToInt([]byte) int
 		GetRawData() []byte
 		GoToNextByte() error
 		HasMoreData() bool
+		GetPosition() int
 	}
 )
 
