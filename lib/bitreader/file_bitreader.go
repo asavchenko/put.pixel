@@ -21,6 +21,10 @@ func (br *fileBitReader) GetPosition() int {
 	return br.idx
 }
 
+func (br *fileBitReader) ResetBitIndex() {
+	br.bi = 0
+}
+
 func (br *fileBitReader) GetRemainingData() ([]byte, error) {
 	fi, err := br.file.Stat()
 	if err != nil {
@@ -76,20 +80,12 @@ func (br *fileBitReader) GoToNextByte() error {
 }
 
 func (br *fileBitReader) GetBit() (byte, error) {
-	if br.idx == 0 {
-		br.idx += 1
-		data := make([]byte, 1)
-
-		n, err := br.file.Read(data)
+	if br.idx == 0 && br.bi == 0 {
+		b, err := br.getNextByte()
 		if err != nil {
 			return 0, err
 		}
-		if n != 1 {
-			return 0, fmt.Errorf("unexpected result")
-		}
-		br.b = data[0]
-		br.bi += 1
-		return br.b & 0b00000001, nil
+		br.b = b
 	}
 	switch br.bi {
 	case 0:
@@ -117,20 +113,30 @@ func (br *fileBitReader) GetBit() (byte, error) {
 		res := (br.b & 0b10000000) >> 7
 		br.bi = 0
 		br.idx += 1
-		data := make([]byte, 1)
-
-		n, err := br.file.Read(data)
+		b, err := br.getNextByte()
 		if err != nil {
 			return 0, err
 		}
-		if n != 1 {
-			return 0, fmt.Errorf("unexpected result")
-		}
-		br.b = data[0]
+		br.b = b
+
 		return res, nil
 	}
 
 	return 0, fmt.Errorf("index is out of range")
+}
+
+func (br *fileBitReader) getNextByte() (byte, error) {
+	data := make([]byte, 1)
+
+	n, err := br.file.Read(data)
+	if err != nil {
+		return 0, err
+	}
+	if n != 1 {
+		return 0, fmt.Errorf("unexpected result")
+	}
+
+	return data[0], nil
 }
 
 func (br *fileBitReader) GetBits(n int) ([]byte, error) {
@@ -185,6 +191,10 @@ func (br *fileBitReader) GetNthBitInByte(b byte, position int) byte {
 	return getNthBitInByte(b, position)
 }
 
-func (br *fileBitReader) ToInt(s []byte) int {
+func (br *fileBitReader) BitsToInt(s []byte) int {
 	return toInt(s)
+}
+
+func (br *fileBitReader) BitsNot(s []byte) []byte {
+	return not(s)
 }

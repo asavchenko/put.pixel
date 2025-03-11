@@ -8,11 +8,13 @@ type (
 		GetBytes(n int) ([]byte, error)
 		GetRemainingData() ([]byte, error)
 		GetNthBitInByte(b byte, position int) byte
-		ToInt([]byte) int
+		BitsToInt([]byte) int
 		GetRawData() []byte
 		GoToNextByte() error
+		ResetBitIndex()
 		HasMoreData() bool
 		GetPosition() int
+		BitsNot([]byte) []byte
 	}
 )
 
@@ -22,6 +24,19 @@ func toInt(s []byte) int {
 	for i := 0; i < len(s); i++ {
 		result += int(s[i]) * val
 		val = val << 1
+	}
+
+	return result
+}
+
+func not(s []byte) []byte {
+	result := make([]byte, len(s))
+	for i := 0; i < len(s); i++ {
+		if s[i] == 1 {
+			result[i] = 0
+		} else {
+			result[i] = 1
+		}
 	}
 
 	return result

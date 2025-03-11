@@ -203,7 +203,7 @@ func (reader *pngReader) GetPalette() [][]byte {
 func (reader *pngReader) filterImage(rowLen int, bpp int, height int) ([]byte, error) {
 	filteredData := make([]byte, rowLen*height*bpp)
 	data := reader.GetRawImageData()
-	log("decode", len(data))
+	log("decoded", len(data))
 	br := bitreader.GetNewSliceBitReader(data)
 	log("row length is", rowLen)
 	i := 0
@@ -232,12 +232,10 @@ func (reader *pngReader) filterImage(rowLen int, bpp int, height int) ([]byte, e
 		x := i * rowLen
 		switch int(filterType[0] + filterType[1]*2 + filterType[2]*4) {
 		case 0:
-			log(filterType, i, "Filter Type None")
 			for k, v := range scanLine {
 				filteredData[x+k] = v
 			}
 		case 1:
-			log(filterType, i, "Filter Type Sub")
 			// The Sub() filter transmits the difference between each byte and the value of the corresponding byte of the prior pixel.
 
 			// To compute the Sub() filter, apply the following formula to each byte of the scanline:
@@ -271,7 +269,6 @@ func (reader *pngReader) filterImage(rowLen int, bpp int, height int) ([]byte, e
 				filteredData[x+j] = el
 			}
 		case 2:
-			log(filterType, i, "Filter Type Up")
 			// The Up() filter is just like the Sub() filter except that the pixel immediately above the current pixel, rather than just to its left, is used as the predictor.
 
 			// To compute the Up() filter, apply the following formula to each byte of the scanline:
@@ -293,7 +290,6 @@ func (reader *pngReader) filterImage(rowLen int, bpp int, height int) ([]byte, e
 				filteredData[x+j] = scanLine[j] + prevScanLine[j]
 			}
 		case 3:
-			log(filterType, i, "Filter Type Average")
 			// The Average() filter uses the average of the two neighboring pixels (left and above) to predict the value of a pixel.
 
 			// To compute the Average() filter, apply the following formula to each byte of the scanline:
@@ -327,7 +323,6 @@ func (reader *pngReader) filterImage(rowLen int, bpp int, height int) ([]byte, e
 				filteredData[x+j] = scanLine[j] + byte((a+b)>>1)
 			}
 		case 4:
-			log(filterType, i, "Filter Type Paeth")
 			// The Paeth() filter computes a simple linear function of the three neighboring pixels
 			// (left, above, upper left), then chooses as predictor the neighboring pixel closest
 			//	to the computed value. This technique is due to Alan W. Paeth [PAETH].
@@ -392,7 +387,7 @@ func (reader *pngReader) filterImage(rowLen int, bpp int, height int) ([]byte, e
 				filteredData[x+j] = scanLine[j] + byte(paeth(int(a), int(b), int(c)))
 			}
 		default:
-			logError(filterType, "unexpected filter type")
+			logError(i, filterType, "unexpected filter type")
 			return filteredData, fmt.Errorf("unexpected filter type %d", i)
 			//return fmt.Errorf("unexpected filter type %d %s %s", i, printBits(filterType), printBytes(scanLine))
 		}
@@ -574,6 +569,9 @@ func GetNew(pathToImage string) (PNGReader, error) {
 			if data, err := r.GetBytes(chunkLen + 4); err != nil {
 				return nil, err
 			} else {
+				for i := 0; i < 16; i++ {
+					log(printBits(data[i]))
+				}
 				idatChunks = append(idatChunks, data[:chunkLen]...)
 				continue
 			}
@@ -627,19 +625,15 @@ func (reader *pngReader) handleIDATChunks(idatChunks []byte) error {
 	// of CINFO above 7 are not allowed in this version of the
 	// specification.  CINFO is not defined in this specification for
 	//	CM not equal to 8.
-	cm, err := cr.GetBits(4)
+	cmf, err := cr.GetBits(8)
 	if err != nil {
 		logError(err)
 		return err
 	}
-	log("CM:", cm[0], cm[1], cm[2], cm[3], "=", cm[0]+cm[1]*2+cm[2]*2*2+cm[3]*2*2*2)
-	cinfo, err := cr.GetBits(4)
-	if err != nil {
-		logError(err)
-		return err
-	}
+	log("CM:", cmf[7], cmf[6], cmf[5], cmf[4], "=", cmf[4]+cmf[5]*2+cmf[6]*2*2+cmf[7]*2*2*2)
+	cinfo := []byte{cmf[3], cmf[2], cmf[1], cmf[0]}
 
-	log("CINFO:", cinfo[0], cinfo[1], cinfo[2], cinfo[3], "=", cinfo[0]+cinfo[1]*2+cinfo[2]*2*2+cinfo[3]*2*2*2)
+	log("CINFO:", cinfo[0], cinfo[1], cinfo[2], cinfo[3], "=", cinfo[3]+cinfo[2]*2+cinfo[1]*2*2+cinfo[0]*2*2*2)
 	// FLG (FLaGs)
 	// This flag byte is divided as follows:
 	//
@@ -957,24 +951,7 @@ func (reader *pngReader) handleDynamicHuffman(cr bitreader.BitReader) ([]byte, e
 		logError(err)
 		return nil, err
 	}
-	//log("decoded LZ77", len(d), cr.GetPosition(), len(cr.GetRawData())-cr.GetPosition())
-	//output, err := getDecompressedDataUsingZlib(cr.GetRawData())
-	//if err != nil {
-	//	logError(err)
-	//	return nil, err
-	//}
-	//if len(output) != len(d) {
-	//	log("bytesRead:", len(output), "len(d):", len(d))
-	//}
-	//for i := 0; i < len(d); i++ {
-	//	if output[i] != d[i] {
-	//		log(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>output:", output[i], "d:", d[i])
-	//	} else {
-	//		//fmt.Print(".")
-	//	}
-	//}
 
-	//reader.imgData = append(reader.imgData, d...)
 	return d, nil
 }
 
@@ -1031,7 +1008,6 @@ func (reader *pngReader) handleFixedHuffman(cr bitreader.BitReader) ([]byte, err
 		return nil, err
 	}
 	log("decoded LZ77", len(d))
-	reader.imgData = append(reader.imgData, d...)
 
 	return d, nil
 }
@@ -1056,21 +1032,23 @@ func (reader *pngReader) handleNoCompression(cr bitreader.BitReader) ([]byte, er
 		logError(err)
 		return nil, err
 	}
-	l := 0
-	if lbytes, err := cr.GetBytes(2); err != nil {
+
+	lbytes, err := cr.GetBytes(4)
+	if err != nil {
 		logError(err)
 		return nil, err
-	} else {
-		log("l:", l, printBytes(lbytes))
-		l = int(lbytes[0]) + int(lbytes[1])<<8
 	}
 
-	if clbytes, err := cr.GetBytes(2); err != nil {
-		logError(err)
-		return nil, nil
-		//return nil, err
-	} else {
-		log("cl:", int(clbytes[0])+int(clbytes[1])<<8, printBytes(clbytes))
+	l := int(lbytes[0]) + int(lbytes[1])<<8
+	cl := int(lbytes[2]) + int(lbytes[3])<<8
+
+	if uint16(cl) != uint16(^l) {
+		return nil, fmt.Errorf("not complement")
+	}
+	log("l:", l)
+	log("cl:", cl)
+	if l == 0 {
+		return make([]byte, 0), nil
 	}
 	d, err := cr.GetBytes(l)
 	if err != nil {
@@ -1135,7 +1113,6 @@ func (reader *pngReader) decodeLZ77(cr bitreader.BitReader, litTree, distTree ma
 			startIdx := idx
 			for i := 0; i < l; i++ {
 				if idx >= len(uncompressedTreeData) {
-					fmt.Println("WTF                                                  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
 					idx = startIdx
 				}
 				uncompressedTreeData = append(uncompressedTreeData, uncompressedTreeData[idx])
@@ -1386,7 +1363,7 @@ func __getValWithExtraBits(cr bitreader.BitReader, startVal int, numExtraBits in
 		return 0, err
 	}
 
-	return startVal + cr.ToInt(bitsE), nil
+	return startVal + cr.BitsToInt(bitsE), nil
 }
 
 func decodeTree(dist int, cr bitreader.BitReader, canonicalHuffmanCodingMapForLengthsTree map[string]int) ([]byte, error) {

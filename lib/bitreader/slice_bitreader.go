@@ -27,6 +27,10 @@ func (br *sliceBitReader) GetPosition() int {
 	return br.idx
 }
 
+func (br *sliceBitReader) ResetBitIndex() {
+	br.bi = 0
+}
+
 func (br *sliceBitReader) GetRemainingData() ([]byte, error) {
 	if br.idx == 0 {
 		return br.arr, nil
@@ -39,7 +43,7 @@ func (br *sliceBitReader) GoToNextByte() error {
 	if br.bi == 0 {
 		return nil
 	}
-	log("current byte is ", br.b, "byte idx:", br.idx, "bit idx:", br.bi, "going to the next byte")
+	log("current byte is", br.b, "byte idx:", br.idx, "bit idx:", br.bi, "going to the next byte")
 	br.idx++
 	br.bi = 0
 	if len(br.arr) <= br.idx {
@@ -63,16 +67,8 @@ func (br *sliceBitReader) GetRawData() []byte {
 }
 
 func (br *sliceBitReader) GetBit() (byte, error) {
-	//fmt.Println("byte idx:", br.idx, "bit idx:", br.bi)
-	if br.idx == 0 {
-		br.idx += 1
-		if len(br.arr) < 1 {
-			logError("the length of the byte reader array is 0")
-			return 0, fmt.Errorf("unexpected result")
-		}
+	if br.idx == 0 && br.bi == 0 {
 		br.b = br.arr[0]
-		br.bi += 1
-		return br.b & 0b00000001, nil
 	}
 	switch br.bi {
 	case 0:
@@ -103,8 +99,8 @@ func (br *sliceBitReader) GetBit() (byte, error) {
 			logError("the byte reader index is", br.idx, "but the length of the byte reader array is", len(br.arr))
 			return 0, fmt.Errorf("unexpected result")
 		}
-		br.b = br.arr[br.idx]
 		br.idx += 1
+		br.b = br.arr[br.idx]
 
 		return res, nil
 	}
@@ -170,8 +166,12 @@ func (br *sliceBitReader) GetNthBitInByte(b byte, position int) byte {
 	return getNthBitInByte(b, position)
 }
 
-func (br *sliceBitReader) ToInt(s []byte) int {
+func (br *sliceBitReader) BitsToInt(s []byte) int {
 	return toInt(s)
+}
+
+func (br *sliceBitReader) BitsNot(s []byte) []byte {
+	return not(s)
 }
 
 func (br *sliceBitReader) HasMoreData() bool {
