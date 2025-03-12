@@ -12,7 +12,7 @@ type (
 		GetRawData() []byte
 		GoToNextByte() error
 		ResetBitIndex()
-		HasMoreData() bool
+		HasMoreData(n ...int) bool
 		GetPosition() int
 		BitsNot([]byte) []byte
 	}

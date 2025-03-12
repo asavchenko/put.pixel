@@ -9,18 +9,19 @@ import (
 )
 
 type sliceBitReader struct {
-	b   byte
-	idx int // global index in the arr
-	bi  int // bit index in the current byte
-	arr []byte
+	b                  byte
+	idx                int // global index in the arr
+	bi                 int // bit index in the current byte
+	arr                []byte
+	needToReadNextByte bool
 }
 
-func GetNewSliceBitReader(data []byte) *sliceBitReader {
+func GetNewSliceBitReader(data []byte) BitReader {
 	dat := make([]byte, len(data))
 	for i, b := range data {
 		dat[i] = b
 	}
-	return &sliceBitReader{0, 0, 0, dat}
+	return &sliceBitReader{0, 0, 0, dat, false}
 }
 
 func (br *sliceBitReader) GetPosition() int {
@@ -70,6 +71,14 @@ func (br *sliceBitReader) GetBit() (byte, error) {
 	if br.idx == 0 && br.bi == 0 {
 		br.b = br.arr[0]
 	}
+	if br.needToReadNextByte {
+		br.needToReadNextByte = false
+		if br.idx < len(br.arr) {
+			br.b = br.arr[br.idx]
+		} else {
+			return 0, fmt.Errorf("EOF")
+		}
+	}
 	switch br.bi {
 	case 0:
 		br.bi += 1
@@ -94,13 +103,13 @@ func (br *sliceBitReader) GetBit() (byte, error) {
 		return (br.b & 0b01000000) >> 6, nil
 	case 7:
 		res := (br.b & 0b10000000) >> 7
-		br.bi = 0
 		if len(br.arr)-1 < br.idx {
 			logError("the byte reader index is", br.idx, "but the length of the byte reader array is", len(br.arr))
 			return 0, fmt.Errorf("unexpected result")
 		}
 		br.idx += 1
-		br.b = br.arr[br.idx]
+		br.bi = 0
+		br.needToReadNextByte = true
 
 		return res, nil
 	}
@@ -174,8 +183,13 @@ func (br *sliceBitReader) BitsNot(s []byte) []byte {
 	return not(s)
 }
 
-func (br *sliceBitReader) HasMoreData() bool {
-	return br.idx < len(br.arr)
+func (br *sliceBitReader) HasMoreData(narr ...int) bool {
+	n := 0
+	if len(narr) > 0 {
+		n = narr[0]
+	}
+
+	return br.idx+n < len(br.arr)
 }
 
 func log(msgs ...interface{}) {

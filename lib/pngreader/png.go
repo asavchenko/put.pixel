@@ -193,24 +193,24 @@ func (reader *pngReader) GetImageData() ([]byte, error) {
 			bpp = 8
 		}
 	}
-	return reader.filterImage(rowLen, bpp, height)
+	return reader.filterImage(rowLen, bpp)
 }
 
 func (reader *pngReader) GetPalette() [][]byte {
 	return reader.palette
 }
 
-func (reader *pngReader) filterImage(rowLen int, bpp int, height int) ([]byte, error) {
+func (reader *pngReader) filterImage(rowLen int, bpp int) ([]byte, error) {
+	height := reader.height
+	if reader.interlaceMethod == 1 {
+		return reader.filterInterlacedImage(rowLen, bpp)
+	}
 	filteredData := make([]byte, rowLen*height*bpp)
 	data := reader.GetRawImageData()
 	log("decoded", len(data))
 	br := bitreader.GetNewSliceBitReader(data)
 	log("row length is", rowLen)
-	i := 0
-	for {
-		if i >= height-1 {
-			break
-		}
+	for i := 0; i < height; i++ {
 		if err := br.GoToNextByte(); err != nil {
 			logError(err)
 			break
@@ -391,7 +391,6 @@ func (reader *pngReader) filterImage(rowLen int, bpp int, height int) ([]byte, e
 			return filteredData, fmt.Errorf("unexpected filter type %d", i)
 			//return fmt.Errorf("unexpected filter type %d %s %s", i, printBits(filterType), printBytes(scanLine))
 		}
-		i++
 	}
 
 	return filteredData, nil
@@ -532,6 +531,7 @@ func GetNew(pathToImage string) (PNGReader, error) {
 		case "PLTE":
 			log("it's PLTE")
 			if data, err := r.GetBytes(chunkLen + 4); err != nil {
+				logError(err)
 				return nil, err
 			} else {
 				// The PLTE chunk contains from 1 to 256 palette entries, each a three-byte series of the form:
@@ -541,23 +541,23 @@ func GetNew(pathToImage string) (PNGReader, error) {
 				//Blue:  1 byte (0 = black, 255 = blue)
 				br := bitreader.GetNewSliceBitReader(data)
 				reader.palette = make([][]byte, 0)
-				for {
-					if !br.HasMoreData() {
-						break
-					}
+				for i := 0; i < chunkLen/3; i++ {
 					if len(data) == 0 {
 						break
 					}
 					r, err := br.GetByte()
 					if err != nil {
+						logError(err)
 						return nil, err
 					}
 					g, err := br.GetByte()
 					if err != nil {
+						logError(err)
 						return nil, err
 					}
 					b, err := br.GetByte()
 					if err != nil {
+						logError(err)
 						return nil, err
 					}
 					reader.palette = append(reader.palette, []byte{r, g, b})
@@ -708,17 +708,17 @@ func (reader *pngReader) handleIDATChunks(idatChunks []byte) error {
 		log("HEADER", headerBits[0], headerBits[1], headerBits[2])
 		switch fmt.Sprint(headerBits[2]) + fmt.Sprint(headerBits[1]) {
 		case "00": // - no compression
-			if _, err := reader.handleNoCompression(cr); err != nil {
+			if err := reader.handleNoCompression(cr); err != nil {
 				logError(err)
 				return err
 			}
 		case "01": // - compressed with fixed Huffman codes
-			if _, err := reader.handleFixedHuffman(cr); err != nil {
+			if err := reader.handleFixedHuffman(cr); err != nil {
 				logError(err)
 				return err
 			}
 		case "10": // - compressed with dynamic Huffman codes
-			if _, err := reader.handleDynamicHuffman(cr); err != nil {
+			if err := reader.handleDynamicHuffman(cr); err != nil {
 				logError(err)
 				return err
 			}
@@ -805,13 +805,13 @@ func (reader *pngReader) handleIHDRChunk(r bitreader.BitReader, chunkLen int) er
 	return nil
 }
 
-func (reader *pngReader) handleDynamicHuffman(cr bitreader.BitReader) ([]byte, error) {
+func (reader *pngReader) handleDynamicHuffman(cr bitreader.BitReader) error {
 	// finally compressed data follows
 	// The first section of a GZIP-compressed block is three integers indicating the number of length codes, the number of literal codes, and the number of distance codes.
 	nLit, err := cr.GetBits(5)
 	if err != nil {
 		logError(err)
-		return nil, err
+		return err
 	}
 	hlit := int(nLit[0]+nLit[1]*2+nLit[2]*2*2+nLit[3]*2*2*2+nLit[4]*2*2*2*2) + 257
 	log("the number of literal codes:", nLit[0], nLit[1], nLit[2], nLit[3], nLit[4], "=", hlit)
@@ -819,21 +819,21 @@ func (reader *pngReader) handleDynamicHuffman(cr bitreader.BitReader) ([]byte, e
 	nDist, err := cr.GetBits(5)
 	if err != nil {
 		logError(err)
-		return nil, err
+		return err
 	}
 	hdist := int(nDist[0]+nDist[1]*2+nDist[2]*2*2+nDist[3]*2*2*2+nDist[4]*2*2*2*2) + 1
 	log("the number of distance codes:", nDist[0], nDist[1], nDist[2], nDist[3], nDist[4], "=", hdist)
 	nLength, err := cr.GetBits(4)
 	if err != nil {
 		logError(err)
-		return nil, err
+		return err
 	}
 	nLen := int(nLength[0] + nLength[1]*2 + nLength[2]*2*2 + nLength[3]*2*2*2)
 	log("the number of length codes:", nLength[0], nLength[1], nLength[2], nLength[3], "=", nLen)
 	lengthCodes, err := cr.GetBits((nLen + 4) * 3)
 	if err != nil {
 		logError(err)
-		return nil, err
+		return err
 	}
 	lenDictionary := []int{16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15}
 	lenDictionaryMap := make(map[int]int, 0)
@@ -908,7 +908,7 @@ func (reader *pngReader) handleDynamicHuffman(cr bitreader.BitReader) ([]byte, e
 	uncompressedLitTreeData, err := decodeTree(hlit, cr, canonicalHuffmanCodingMapForLengthsTree)
 	if err != nil {
 		logError(err)
-		return nil, err
+		return err
 	}
 	litDictionary := make(map[int]int, 0)
 	litFreq := make(map[int]int, 0)
@@ -922,7 +922,7 @@ func (reader *pngReader) handleDynamicHuffman(cr bitreader.BitReader) ([]byte, e
 	uncompressedDistTreeData, err := decodeTree(hdist, cr, canonicalHuffmanCodingMapForLengthsTree)
 	if err != nil {
 		logError(err)
-		return nil, err
+		return err
 	}
 	distDictionary := make(map[int]int, 0)
 	distFreq := make(map[int]int, 0)
@@ -949,13 +949,14 @@ func (reader *pngReader) handleDynamicHuffman(cr bitreader.BitReader) ([]byte, e
 	log("decoded LZ77", len(d))
 	if err != nil {
 		logError(err)
-		return nil, err
+		return err
 	}
 
-	return d, nil
+	return nil
 }
 
-func (reader *pngReader) handleFixedHuffman(cr bitreader.BitReader) ([]byte, error) {
+func (reader *pngReader) handleFixedHuffman(cr bitreader.BitReader) error {
+	log("FIXED HUFFMAN")
 	// The Huffman codes for the two alphabets are fixed, and are not represented explicitly in the data. The Huff-
 	// man code lengths for the literal/length alphabet are:
 
@@ -1005,14 +1006,16 @@ func (reader *pngReader) handleFixedHuffman(cr bitreader.BitReader) ([]byte, err
 	d, err := reader.decodeLZ77(cr, litTree, distTree)
 	if err != nil {
 		logError(err)
-		return nil, err
+		return err
 	}
 	log("decoded LZ77", len(d))
 
-	return d, nil
+	reader.imgData = append(reader.imgData, d...)
+
+	return nil
 }
 
-func (reader *pngReader) handleNoCompression(cr bitreader.BitReader) ([]byte, error) {
+func (reader *pngReader) handleNoCompression(cr bitreader.BitReader) error {
 	// Any bits of input up to the next byte boundary are ignored. The rest of the block consists of the following
 	// information:
 	// 0  1   2   3   4...
@@ -1030,25 +1033,25 @@ func (reader *pngReader) handleNoCompression(cr bitreader.BitReader) ([]byte, er
 	// 00110001 11110011
 	if err := cr.GoToNextByte(); err != nil {
 		logError(err)
-		return nil, err
+		return err
 	}
 
 	lbytes, err := cr.GetBytes(4)
 	if err != nil {
 		logError(err)
-		return nil, err
+		return err
 	}
 
 	l := int(lbytes[0]) + int(lbytes[1])<<8
 	cl := int(lbytes[2]) + int(lbytes[3])<<8
 
 	if uint16(cl) != uint16(^l) {
-		return nil, fmt.Errorf("not complement")
+		return fmt.Errorf("not complement")
 	}
 	log("l:", l)
 	log("cl:", cl)
 	if l == 0 {
-		return make([]byte, 0), nil
+		return nil
 	}
 	d, err := cr.GetBytes(l)
 	if err != nil {
@@ -1057,7 +1060,7 @@ func (reader *pngReader) handleNoCompression(cr bitreader.BitReader) ([]byte, er
 	log("read", len(d), "bytes of uncompressed data")
 	reader.imgData = append(reader.imgData, d...)
 
-	return d, nil
+	return nil
 }
 
 func buildNaturalOrderTree(codingMap map[int][]string, freq map[int]int) map[string]int {
@@ -1124,6 +1127,130 @@ func (reader *pngReader) decodeLZ77(cr bitreader.BitReader, litTree, distTree ma
 	reader.imgData = uncompressedTreeData
 
 	return uncompressedTreeData, nil
+}
+
+func (reader *pngReader) filterInterlacedImage(rowLen int, bpp int) ([]byte, error) {
+	startingRow := []int{0, 0, 4, 0, 2, 0, 1}
+	startingCol := []int{0, 4, 0, 2, 0, 1, 0}
+	rowIncrement := []int{8, 8, 8, 4, 4, 2, 2}
+	colIncrement := []int{8, 8, 4, 4, 2, 2, 1}
+	width := reader.width
+	height := reader.height
+	filteredData := make([]byte, rowLen*height*bpp)
+	data := reader.GetRawImageData()
+	log("decoded", len(data))
+	br := bitreader.GetNewSliceBitReader(data)
+	log("row length is", rowLen)
+	for pass := 0; pass < 7; pass++ {
+		rowsNum := (height - startingRow[pass] + rowIncrement[pass] - 1) / rowIncrement[pass]
+		if rowsNum < 0 {
+			rowsNum = 0
+		}
+
+		colsNum := (width - startingCol[pass] + colIncrement[pass] - 1) / colIncrement[pass]
+		if colsNum < 0 {
+			colsNum = 0
+		}
+
+		log("number of rows:", rowsNum, "number of columns:", colsNum)
+		//FILTER ... colsNum
+		//.
+		//. rowsNum
+		//.
+		//FILTER ...
+		passFilteredData := make([]byte, rowsNum*colsNum*bpp)
+		for j := 0; j < rowsNum; j++ {
+			if err := br.GoToNextByte(); err != nil {
+				logError(err)
+				break
+			}
+			filterType, err := br.GetBits(8)
+			if err != nil {
+				return filteredData, err
+			}
+			scanLine, err := br.GetBytes(colsNum * bpp)
+			if err != nil {
+				return filteredData, err
+			}
+			prevScanLine := make([]byte, colsNum*bpp)
+			if j > 0 {
+				prevScanLine = passFilteredData[(j-1)*colsNum*bpp : j*colsNum*bpp]
+			}
+			x := j * colsNum * bpp
+			switch int(filterType[0] + filterType[1]*2 + filterType[2]*4) {
+			case 0:
+				for k, v := range scanLine {
+					passFilteredData[x+k] = v
+				}
+			case 1:
+				for i := 0; i < len(scanLine); i++ {
+					el := scanLine[i]
+					if i >= bpp {
+						el += passFilteredData[x+i-bpp]
+					}
+					passFilteredData[x+i] = el
+				}
+			case 2:
+				for i := 0; i < len(scanLine); i++ {
+					passFilteredData[x+i] = scanLine[i] + prevScanLine[i]
+				}
+			case 3:
+				for i := 0; i < len(scanLine); i++ {
+					a := int(prevScanLine[i])
+					b := 0
+					if i >= bpp {
+						b = int(passFilteredData[x+i-bpp])
+					}
+
+					passFilteredData[x+i] = scanLine[i] + byte((a+b)>>1)
+				}
+			case 4:
+				for i := 0; i < len(scanLine); i++ {
+					a := byte(0)
+					if i >= bpp {
+						a = passFilteredData[x+i-bpp]
+					}
+
+					b := prevScanLine[i]
+
+					c := byte(0)
+					if i >= bpp {
+						c = prevScanLine[i-bpp]
+					}
+
+					passFilteredData[x+i] = scanLine[i] + byte(paeth(int(a), int(b), int(c)))
+				}
+			default:
+				logError(j, filterType, "unexpected filter type")
+				return filteredData, fmt.Errorf("unexpected filter type %d", j)
+				//return fmt.Errorf("unexpected filter type %d %s %s", i, printBits(filterType), printBytes(scanLine))
+			}
+		}
+		row := startingRow[pass]
+		j := 0
+		for {
+			if row >= height {
+				break
+			}
+
+			i := 0
+			col := startingCol[pass]
+			for {
+				if col >= width {
+					break
+				}
+				for k := 0; k < bpp; k++ {
+					filteredData[row*rowLen+col*bpp+k] = passFilteredData[j*colsNum*bpp+i*bpp+k]
+				}
+				col += colIncrement[pass]
+				i++
+			}
+			row += rowIncrement[pass]
+			j++
+		}
+	}
+
+	return filteredData, nil
 }
 
 func getDistanceLength(cr bitreader.BitReader, val int, distTree map[string]int) (int, int, error) {

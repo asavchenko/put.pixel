@@ -7,14 +7,15 @@ import (
 )
 
 type fileBitReader struct {
-	b    byte
-	idx  int // global index in the file
-	bi   int // bit index in the current byte
-	file *os.File
+	b                  byte
+	idx                int // global index in the file
+	bi                 int // bit index in the current byte
+	file               *os.File
+	needToReadNextByte bool
 }
 
-func GetNewFileBitReader(r *os.File) *fileBitReader {
-	return &fileBitReader{0, 0, 0, r}
+func GetNewFileBitReader(r *os.File) BitReader {
+	return &fileBitReader{0, 0, 0, r, false}
 }
 
 func (br *fileBitReader) GetPosition() int {
@@ -43,13 +44,17 @@ func (br *fileBitReader) GetRemainingData() ([]byte, error) {
 	return data, nil
 }
 
-func (br *fileBitReader) HasMoreData() bool {
+func (br *fileBitReader) HasMoreData(narr ...int) bool {
 	fi, err := br.file.Stat()
 	if err != nil {
 		return false
 	}
+	n := 0
+	if len(narr) > 0 {
+		n = narr[0]
+	}
 
-	return br.idx < int(fi.Size())
+	return br.idx+n < int(fi.Size())
 }
 
 func (br *fileBitReader) GetRawData() []byte {
@@ -87,6 +92,14 @@ func (br *fileBitReader) GetBit() (byte, error) {
 		}
 		br.b = b
 	}
+	if br.needToReadNextByte {
+		br.needToReadNextByte = false
+		b, err := br.getNextByte()
+		if err != nil {
+			return 0, err
+		}
+		br.b = b
+	}
 	switch br.bi {
 	case 0:
 		br.bi += 1
@@ -113,11 +126,7 @@ func (br *fileBitReader) GetBit() (byte, error) {
 		res := (br.b & 0b10000000) >> 7
 		br.bi = 0
 		br.idx += 1
-		b, err := br.getNextByte()
-		if err != nil {
-			return 0, err
-		}
-		br.b = b
+		br.needToReadNextByte = true
 
 		return res, nil
 	}
