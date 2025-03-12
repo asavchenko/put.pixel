@@ -1152,7 +1152,7 @@ func (reader *pngReader) filterInterlacedImage(rowLen int, bpp int) ([]byte, err
 			colsNum = 0
 		}
 
-		log("number of rows:", rowsNum, "number of columns:", colsNum)
+		//log("number of rows:", rowsNum, "number of columns:", colsNum)
 		//FILTER ... colsNum
 		//.
 		//. rowsNum

@@ -251,7 +251,73 @@ pseudo code:
 
 
 Now this all should be correct - the filter byte is no longer ignored here.
+================================================================================================
+What about the interlaced images?
+We will not have a single rectangle of bytes in this case. An interlaced image is a series of
+reduced images. We will have only portions of the whole image. There are 7 passes to go trough,
+7 reduced images. If the whole image has 100% of data, a reduced image contains only N % of the whole
+data, something like:
+    allPixels = pixels from pass 1 + pixels from pass2 ... + pixels from pass7
 
+How the pixels are selected to form a reduced image? Here is the pattern that applies to the entire image:
+
+    1 6 4 6 2 6 4 6
+    7 7 7 7 7 7 7 7
+    5 6 5 6 5 6 5 6
+    7 7 7 7 7 7 7 7
+    3 6 4 6 3 6 4 6
+    7 7 7 7 7 7 7 7
+    5 6 5 6 5 6 5 6
+    7 7 7 7 7 7 7 7
+
+so on the first pass only these pixels are selected:
+
+    (0, 0),   (8, 0),   (16, 0), ...,   (N*8, 0)
+    (0, 8),   (8, 8),   (16, 8), ...,   (N*8, 8)
+    ...
+    (0, M*8), (8, M*8), (16, M*8), ..., (N*8, M*8)
+
+    where N = (imgWidth  - 1) / 8 + 1
+          M = (imgHeight - 1) / 8 + 1
+
+These reduced images have own FILTERS:
+        FILTER BYTE| PIXEL DATA | PIXEL DATA...
+        FILTER BYTE| PIXEL DATA | PIXEL DATA...
+        ...
+        FILTER BYTE| PIXEL DATA | PIXEL DATA...
+
+so we apply the same FILTER logic described earlier to get the RAW PIXEL DATA (or original pixel data)
+Then we insert these filtered PIXELS back into their corresponding cells in the original image pixel array:
+
+    after the first pass we should have only these pixels:
+    --------------------------------------------------
+    |0|          |0|          ...           |0|       |
+    --------------------------------------------------
+    |                                                 |
+    --------------------------------------------------
+    |                                                 |
+    --------------------------------------------------
+    |                                                 |
+    --------------------------------------------------
+    |                                                 |
+    --------------------------------------------------
+    |                                                 |
+    --------------------------------------------------
+    |                                                 |
+    --------------------------------------------------
+    |                                                 |
+    --------------------------------------------------
+    |0|          |0|          ...           |0|       |
+    --------------------------------------------------
+    |                                                 |
+    --------------------------------------------------
+    |                                                 |
+    --------------------------------------------------
+    |                                                 |
+    --------------------------------------------------
+    |                                                 |
+
+and so on, with every new pass we get more and more pixels, until the entire image is reconstructed
 
 ================================================================================================
 Now let's go back to the DEFLATE algorithm. Yes, this step can be ignored if you use a library that
