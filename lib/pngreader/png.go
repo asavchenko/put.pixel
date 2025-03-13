@@ -569,9 +569,6 @@ func GetNew(pathToImage string) (PNGReader, error) {
 			if data, err := r.GetBytes(chunkLen + 4); err != nil {
 				return nil, err
 			} else {
-				for i := 0; i < 16; i++ {
-					log(printBits(data[i]))
-				}
 				idatChunks = append(idatChunks, data[:chunkLen]...)
 				continue
 			}

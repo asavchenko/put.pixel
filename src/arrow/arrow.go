@@ -29,6 +29,10 @@ func (a *arrow) Rotate(da float64) {
 	a.a += da
 }
 
+func (a *arrow) A() float64 {
+	return a.a
+}
+
 func (a *arrow) RotateTo(x1, y1 int) {
 	if x1 == a.x0 {
 		return
@@ -39,7 +43,6 @@ func (a *arrow) RotateTo(x1, y1 int) {
 	} else {
 		a.a = math.Pi + math.Atan(float64(y1-a.y0)/float64(x1-a.x0))
 	}
-
 }
 
 func (a *arrow) Show() {

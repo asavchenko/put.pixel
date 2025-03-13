@@ -16,12 +16,17 @@ func init() {
 }
 
 func main() {
+	//pathToPng := "blue.png"
+	//pathToPng := "green.png"
+	//pathToPng := "red.png"
+	pathToPng := "purple.png"
+	//pathToPng := "yellow.png"
 	//pathToPng := "sample.png"
 	//pathToPng := "goose.png"
 	//pathToPng := "ChunkDataTooLarge.png"
 	//pathToPng := "face.png" // multiple IDAT chunk
 	//pathToPng := "download.png" // it's a palette image with 256 colors
-	pathToPng := "logo5.png" // it's a RGB with alpha image with 256 shades
+	//pathToPng := "logo5.png" // it's a RGB with alpha image with 256 shades
 
 	pngReader, err := pngreader.GetNew(pathToPng)
 	if err != nil {
