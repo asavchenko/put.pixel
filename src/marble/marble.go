@@ -18,6 +18,7 @@ type marble struct {
 	r       float64 // radius
 	width   int
 	height  int
+	speed   float64
 	a       float64 // angle
 	color   byte
 	imgData []byte
@@ -68,6 +69,7 @@ func GetNew(x0, y0 int, size int, color byte) Object {
 		_copyData[k] = v
 	}
 	_m := &marble{
+		speed:   0,
 		x:       float64(x0),
 		y:       float64(y0),
 		color:   color,
@@ -80,6 +82,14 @@ func GetNew(x0, y0 int, size int, color byte) Object {
 	_m.resize(size)
 
 	return _m
+}
+
+func (m *marble) SetSpeed(speed float64) {
+	m.speed = speed
+}
+
+func (m *marble) GetSpeed() float64 {
+	return m.speed
 }
 
 func (m *marble) resize(size int) {
@@ -102,9 +112,9 @@ func (m *marble) Show() {
 	}
 }
 
-func (m *marble) Move(d int) {
-	m.x = math.Cos(m.a)*float64(d) + m.x
-	m.y = math.Sin(m.a)*float64(d) + m.y
+func (m *marble) Move() {
+	m.x = math.Cos(m.a)*m.speed + m.x
+	m.y = math.Sin(m.a)*m.speed + m.y
 }
 
 func (m *marble) RotateTo(x1, y1 int) {
@@ -128,8 +138,97 @@ func (m *marble) IntersectsWith(_m Object) bool {
 	return m.GetDistanceTo(_m) < m.D()
 }
 
-func (m *marble) GetDistanceTo(_m Object) float64 {
-	return math.Sqrt(math.Pow(m.X()-_m.X(), 2) + math.Pow(m.Y()-_m.Y(), 2))
+func (m *marble) WillIntersectsWith(cm Object) (bool, float64, float64) {
+	i, x, y := m.willCenterIntersectsWith(cm)
+	if !i {
+		i, x, y = m.willBottomIntersectsWith(cm)
+		if !i {
+			i, x, y = m.willTopIntersectsWith(cm)
+			if !i {
+				return false, 0, 0
+			} else {
+				return true, x, y
+			}
+		} else {
+			return true, x, y
+		}
+	} else {
+		return true, x, y
+	}
+}
+
+func (m *marble) willTopIntersectsWith(cm Object) (bool, float64, float64) {
+	x := math.Cos(m.a+math.Pi/2)*m.R() + m.x
+	y := math.Sin(m.a+math.Pi/2)*m.R() + m.y
+
+	return m.willPointIntersectsWith(x, y, cm)
+}
+
+func (m *marble) willBottomIntersectsWith(cm Object) (bool, float64, float64) {
+	x := math.Cos(m.a-math.Pi/2)*m.R() + m.x
+	y := math.Sin(m.a-math.Pi/2)*m.R() + m.y
+
+	return m.willPointIntersectsWith(x, y, cm)
+}
+
+func (m *marble) willCenterIntersectsWith(cm Object) (bool, float64, float64) {
+	return m.willPointIntersectsWith(m.X(), m.Y(), cm)
+}
+
+func (m *marble) willPointIntersectsWith(x, y float64, cm Object) (bool, float64, float64) {
+	x = math.Cos(m.a)*m.speed + x
+	y = math.Sin(m.a)*m.speed + y
+	ta := math.Tan(m.A())
+	a := ta*ta + 1
+	if a == 0 {
+		//log(ta*ta+1, "=", 0)
+		return false, 0, 0
+	}
+	c1 := y - cm.Y() - ta*x
+	b := 2*ta*c1 - 2*cm.X()
+	c := c1*c1 + cm.X()*cm.X() - cm.R()*cm.R()
+	ds := b*b - 4*a*c
+	if ds < 0 {
+		//log(ds, "<", 0, "b=", b, "4*a*c=", 4*a*c)
+		return false, 0, 0
+	}
+	ds = math.Sqrt(ds)
+
+	x1 := (-b + ds) / 2 / a
+	x2 := (-b - ds) / 2 / a
+	if x1 < x || x1 > x+m.GetSpeed() {
+		if x2 < x || x2 > x+cm.GetSpeed() {
+			//log(x2, "<", x, "||", x2, ">", x+cm.GetSpeed())
+			return false, 0, 0
+		} else {
+			//log("INTERSECTS! at", x2, ta*(x2-x)+y)
+			return true, x2, ta*(x2-x) + y
+		}
+	} else {
+		//log("INTERSECTS! at", x1, ta*(x1-x)+y)
+		return true, x1, ta*(x1-x) + y
+	}
+}
+
+func (m *marble) GetDistanceTo(_m ...interface{}) float64 {
+	if len(_m) == 1 {
+		switch t := _m[0].(type) {
+		case Object:
+			dx := m.X() - t.X()
+			dy := m.Y() - t.Y()
+			return math.Sqrt(dx*dx + dy*dy)
+		}
+	}
+	if len(_m) == 2 {
+		x := _m[0].(float64)
+		y := _m[1].(float64)
+		dx := m.X() - x
+		dy := m.Y() - y
+
+		return math.Sqrt(dx*dx + dy*dy)
+	}
+
+	return -1
 }
 
 func (m *marble) Rotate(da float64) {
@@ -187,4 +286,9 @@ func (m *marble) MoveTo(x, y float64) {
 
 func GetRandomColor() byte {
 	return byte(mlib.GetRandomBtw(0, 4))
+}
+
+func (m *marble) Contains(x, y float64) bool {
+	d := m.GetDistanceTo(x, y)
+	return d >= 0 && d <= m.R()
 }

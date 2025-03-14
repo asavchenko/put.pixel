@@ -27,31 +27,15 @@ func main() {
 	//pprof.StartCPUProfile(f)
 	//defer pprof.StopCPUProfile()
 
+	marbleSpeed := 6
 	w := ogl.GetWindowWidth()
 	h := ogl.GetWindowHeight()
 	a := arrow.GetNew(w/2, h/9, 30, 0, 0xFEFEFEFF)
-	marbles := make([]marble.Object, 0)
 	size := 32
-	minLeft := -1
-	maxRight := -1
-	for j := 0; j < h/size-5; j += 1 {
-		for i := 0; i < w/size; i += 1 {
-			x := i*size + size/2
-			y := h - size/2 - j*size
-			if minLeft > x {
-				minLeft = x
-			}
-			if minLeft < 0 {
-				minLeft = x
-			}
-			if maxRight < x {
-				maxRight = x
-			}
-			marbles = append(marbles, marble.GetNew(x, y, size, marble.GetRandomColor()))
-		}
-	}
+	marbles := marble.GetNewGroup(w, h, size)
 	nextMarble := marble.GetNew(w/2-size*2, h/9, size, marble.GetRandomColor())
 	curMarble := marble.GetNew(w/2, h/9, size, marble.GetRandomColor())
+	curMarble.SetSpeed(float64(marbleSpeed))
 	ogl.Init(false)
 	defer ogl.Close()
 	ogl.OnKeypress(ogl.KEY_ESC, func() {
@@ -68,7 +52,6 @@ func main() {
 		curMarble.SetAngle(a.A())
 		isMoving = true
 	})
-	marbleSpeed := 6
 	for {
 		if ogl.IsExit() {
 			break
@@ -76,62 +59,34 @@ func main() {
 		ogl.Draw(func() {
 			x, y := ogl.GetMousePosition()
 			a.RotateTo(x, y)
-			for _, m := range marbles {
-				m.Show()
-			}
 			nextMarble.Show()
 			if isMoving {
-				curMarble.Move(marbleSpeed)
-				isIntersection := false
-				minD := curMarble.D()
-				ix, iy := float64(0), float64(0)
-				mi := 0
-				for i, m := range marbles {
-					d := m.GetDistanceTo(curMarble)
-					if d > m.D()+1 {
-						continue
-					}
-					if minD > d && !isOccupied(m.X(), m.Y()-curMarble.D(), marbles) {
-						mi = i
-						//fmt.Println(d)
-						minD = d
-						ix = m.X()
-						iy = m.Y()
-						isIntersection = true
-					}
-					// intersection!!
-				}
-				if isIntersection {
-					if marbles[mi].Color() == curMarble.Color() {
-						curMarble.MoveTo(ix, iy-curMarble.D())
-						marbles = append(marbles, curMarble)
-						neighbors := make([]int, 0)
-						neighbors = getNeighbors(mi, marbles, &neighbors)
-						log("neighbors:", len(neighbors))
-						if len(neighbors) >= 3 {
-							marbles = removeFromSliceByIdx(marbles, neighbors)
-						}
-					}
-
+				curMarble.Move()
+				if isIntersection, ix, iy := marbles.GetIntersection(curMarble); isIntersection {
+					curMarble.MoveTo(ix, iy)
+					marbles.Add(curMarble)
+					marbles.RemoveMatched(curMarble)
 					curMarble = marble.GetNew(w/2, h/9, size, nextMarble.Color())
+					curMarble.SetSpeed(float64(marbleSpeed))
 					nextMarble = marble.GetNew(w/2-size*2, h/9, size, marble.GetRandomColor())
 					isMoving = false
 				} else {
 					// checking Edges
-					if mlib.AbsInt(curMarble.CX()-minLeft) < curMarble.CR() {
+					if mlib.AbsInt(curMarble.CX()) < curMarble.CR() {
 						curMarble.Rotate(-math.Pi / 2)
-						curMarble.Move(curMarble.CR() + marbleSpeed)
+						curMarble.Move()
 						//fmt.Println("left edge was hit", minLeft, curMarble.X(), 180/math.Pi*curMarble.A())
 					}
-					if mlib.AbsInt(curMarble.CX()-maxRight) < curMarble.CR() {
+					if mlib.AbsInt(curMarble.CX()-w) < curMarble.CR() {
 						curMarble.Rotate(math.Pi / 2)
-						curMarble.Move(curMarble.CR() + marbleSpeed)
+						curMarble.Move()
 						//fmt.Println("right edge was hit", 180/math.Pi*curMarble.A())
 					}
 				}
 			}
 			curMarble.Show()
 			a.Show()
+			marbles.Show()
 		})
 	}
 }
@@ -155,22 +110,23 @@ func removeFromSliceByIdx(a []marble.Object, i []int) []marble.Object {
 	return res
 }
 
-func getNeighbors(mi int, marbles []marble.Object, arr *[]int) []int {
-	found := false
-	for _, v := range *arr {
-		if v == mi {
-			found = true
-			break
+func removeFromIntSliceByVal(a []int, e int) []int {
+	res := make([]int, 0)
+	for _, el := range a {
+		if el == e {
+			continue
 		}
+		res = append(res, el)
 	}
-	if !found {
-		*arr = append(*arr, mi)
-		x
-	}
+
+	return res
+}
+
+func getNeighbors(mi int, marbles []marble.Object, arr *[]int) []int {
 	log(mi, *arr)
 	cm := marbles[mi]
 	for i, m := range marbles {
-		if m.Color() != cm.Color() {
+		if m.Color() != cm.Color() || mi == i {
 			continue
 		}
 		found := false
