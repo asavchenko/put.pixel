@@ -139,7 +139,7 @@ func PutPixelRGB(x, y int, color uint32) {
 }
 
 func GetPixel(x, y int) uint32 {
-	if x < 0 || x >= width || y < 0 && y >= height {
+	if x < 0 || x >= width || y < 0 || y >= height {
 		return 0
 	}
 

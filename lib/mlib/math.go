@@ -3,6 +3,7 @@ package mlib
 import (
 	"math/rand"
 	"time"
+	"unsafe"
 )
 
 type Point2DInt struct {
@@ -160,4 +161,18 @@ func GetBezierCoords3(a, b Point2D, c, d Point2D, numberOfSteps int) []Point2D {
 	}
 
 	return result
+}
+
+func Q_rsqrt(number float32) float32 {
+	var i int32
+	var x2, y float32
+	const threehalfs float32 = 1.5
+	x2 = number * 0.5
+	y = number
+	i = *(*int32)(unsafe.Pointer(&y))
+	i = 0x5F3759DF - (i >> 1)
+	y = *(*float32)(unsafe.Pointer(&i))
+	y = y * (threehalfs - (x2 * y * y))
+
+	return y
 }

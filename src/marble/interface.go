@@ -21,9 +21,13 @@ type Object interface {
 	IntersectsWith(Object) bool
 	WillIntersectsWith(Object) (bool, float64, float64)
 	GetDistanceTo(...interface{}) float64
+	IsMoving() bool
+	SetIsMoving(bool)
 	GetSpeed() float64
 	IsInside(float64, float64) bool
 	Contains(x, y float64) bool
+	BXY() (int, int)
+	IBXY(int, int, int) (float64, float64)
 }
 
 type Group interface {
@@ -35,7 +39,10 @@ type Group interface {
 	GetRightBorder() int
 	GetBottomBorder() int
 	MoveDown()
-	GetIntersection(Object) (bool, float64, float64)
+	GetFIntersection(Object) (bool, float64, float64)
+	GetBIntersection(Object) (bool, float64, float64)
 	Show()
 	RemoveMatched(Object)
+	GetNeighbor(Object, int) Object
+	GetBresenhamCells() [][]int
 }

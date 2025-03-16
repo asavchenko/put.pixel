@@ -1,10 +1,11 @@
 package marble
 
 import (
+	"math"
+
 	"assa.com/put.pixel/lib/mlib"
 	"assa.com/put.pixel/lib/ogl"
 	"assa.com/put.pixel/lib/pngreader"
-	"math"
 )
 
 const RED = byte(0)
@@ -14,14 +15,20 @@ const YELLOW = byte(3)
 const PURPLE = byte(4)
 
 type marble struct {
-	x, y    float64
-	r       float64 // radius
-	width   int
-	height  int
-	speed   float64
-	a       float64 // angle
-	color   byte
-	imgData []byte
+	x, y         float64
+	bx, by       int
+	gridSize     int
+	r            float64 // radius
+	width        int
+	height       int
+	windowWidth  int
+	windowHeight int
+	speed        float64
+	a            float64 // angle
+	isMoving     bool
+	color        byte
+	isRotated    bool
+	imgData      []byte
 }
 
 var colorPathToAssetMap = map[byte]string{
@@ -51,15 +58,30 @@ func init() {
 		}
 		imgWidth = pngReader.GetImageWidth()
 		imgHeight = pngReader.GetImageHeight()
+		flippedImgData := make([]byte, 0)
+		for j := 0; j < imgHeight; j++ {
+			line := make([]byte, imgWidth*4)
+			for i := 0; i < imgWidth; i++ {
+				line[4*i] = imgData[j*imgWidth*4+4*i]
+				line[4*i+1] = imgData[j*imgWidth*4+4*i+1]
+				line[4*i+2] = imgData[j*imgWidth*4+4*i+2]
+				line[4*i+3] = imgData[j*imgWidth*4+4*i+3]
+			}
+			flippedImgData = append(line, flippedImgData...)
+		}
+		//imgData = flippedImgData
+
+		log(len(flippedImgData), len(imgData))
+
 		if pngReader.GetColorType() != pngreader.ColorTypeTruecolorAlpha {
 			panic("unsupported color scheme for marble asset")
 		}
 		pngReader.Close()
-		colorImageMap[color] = imgData
+		colorImageMap[color] = flippedImgData
 	}
 }
 
-func GetNew(x0, y0 int, size int, color byte) Object {
+func GetNew(x0, y0 int, size int, color byte, windowWidth, windowHeight int, gridSize int) Object {
 	data, exists := colorImageMap[color]
 	if !exists {
 		return nil
@@ -69,17 +91,23 @@ func GetNew(x0, y0 int, size int, color byte) Object {
 		_copyData[k] = v
 	}
 	_m := &marble{
-		speed:   0,
-		x:       float64(x0),
-		y:       float64(y0),
-		color:   color,
-		width:   imgWidth,
-		height:  imgHeight,
-		r:       float64(max(imgWidth, imgHeight)) / 2,
-		imgData: _copyData,
+		speed:        0,
+		x:            float64(x0),
+		y:            float64(y0),
+		color:        color,
+		width:        imgWidth,
+		windowWidth:  windowWidth,
+		windowHeight: windowHeight,
+		height:       imgHeight,
+		r:            float64(max(imgWidth, imgHeight)) / 2,
+		imgData:      _copyData,
+		gridSize:     gridSize,
 	}
 
 	_m.resize(size)
+	bx, by := _m.bXY()
+	_m.bx = bx
+	_m.by = by
 
 	return _m
 }
@@ -97,8 +125,10 @@ func (m *marble) resize(size int) {
 }
 
 func (m *marble) Show() {
-	x := int(m.x - m.r)
-	y := int(m.y + m.r)
+	x := m.CX() - m.CR()
+	y := m.CY() - m.CR()
+	ogl.PutByteBitmap(x, y, m.width*4, m.height, m.imgData)
+	return
 	for i := 0; i < m.height; i++ {
 		for j := 0; j < m.width; j += 1 {
 			index := i*m.width*4 + j*4
@@ -113,25 +143,31 @@ func (m *marble) Show() {
 }
 
 func (m *marble) Move() {
-	m.x = math.Cos(m.a)*m.speed + m.x
-	m.y = math.Sin(m.a)*m.speed + m.y
+	m.x += math.Cos(m.a) * m.speed
+	m.y += math.Sin(m.a) * m.speed
+	m.bx, m.by = m.bXY()
 }
 
 func (m *marble) RotateTo(x1, y1 int) {
 	if x1 == m.CX() {
 		return
 	}
+	dx := float64(x1) - m.X()
+	dy := float64(y1) - m.Y()
 
 	if x1 > m.CX() {
-		m.a = math.Atan(float64(y1-m.CY()) / float64(x1-m.CX()))
+		m.a = math.Atan(dy / dx)
 	} else {
-		m.a = math.Pi + math.Atan(float64(y1-m.CY())/float64(x1-m.CX()))
+		m.a = math.Pi + math.Atan(dy/dx)
 	}
 
 }
 
 func (m *marble) IsInside(x, y float64) bool {
-	return math.Sqrt(math.Pow(m.X()-x, 2)+math.Pow(m.Y()-y, 2)) < m.R()
+	dx := m.X() - x
+	dy := m.Y() - y
+
+	return math.Sqrt(dx*dx+dy*dy) < m.R()
 }
 
 func (m *marble) IntersectsWith(_m Object) bool {
@@ -174,6 +210,179 @@ func (m *marble) willBottomIntersectsWith(cm Object) (bool, float64, float64) {
 func (m *marble) willCenterIntersectsWith(cm Object) (bool, float64, float64) {
 	return m.willPointIntersectsWith(m.X(), m.Y(), cm)
 }
+func (m *marble) GetDistanceTo(_m ...interface{}) float64 {
+	if len(_m) == 1 {
+		switch t := _m[0].(type) {
+		case Object:
+			dx := m.X() - t.X()
+			dy := m.Y() - t.Y()
+			return math.Sqrt(dx*dx + dy*dy)
+		}
+	}
+	if len(_m) == 2 {
+		x := _m[0].(float64)
+		y := _m[1].(float64)
+		dx := m.X() - x
+		dy := m.Y() - y
+
+		return math.Sqrt(dx*dx + dy*dy)
+	}
+
+	return -1
+}
+
+func (m *marble) Rotate(da float64) {
+	if m.isRotated {
+		return
+	}
+	m.a += da
+	m.isRotated = true
+}
+
+func (m *marble) SetAngle(a float64) {
+	m.a = a
+}
+
+func (m *marble) X() float64 {
+	return m.x
+}
+
+func (m *marble) Y() float64 {
+	return m.y
+}
+
+func (m *marble) CX() int {
+	return int(math.Round(m.x))
+}
+
+func (m *marble) CY() int {
+	return int(math.Round(m.y))
+}
+
+func (m *marble) Color() byte {
+	return m.color
+}
+
+func (m *marble) A() float64 {
+	return m.a
+}
+
+func (m *marble) R() float64 {
+	if m.isMoving {
+		return m.r * 8 / 9
+	}
+
+	return m.r
+}
+
+func (m *marble) D() float64 {
+	return m.R() * 2
+}
+
+func (m *marble) CR() int {
+	return int(math.Round(m.R()))
+}
+
+func (m *marble) CD() int {
+	return m.CR() * 2
+}
+
+func (m *marble) MoveTo(x, y float64) {
+	m.x = x
+	m.y = y
+	m.bx, m.by = m.bXY()
+}
+
+func GetRandomColor() byte {
+	return byte(mlib.GetRandomBtw(0, 4))
+}
+
+func (m *marble) Contains(x, y float64) bool {
+	d := m.GetDistanceTo(x, y)
+
+	return d >= 0 && d <= m.R()
+}
+
+func (m *marble) IsMoving() bool {
+	return m.isMoving
+}
+
+func (m *marble) SetIsMoving(val bool) {
+	m.isMoving = val
+}
+func (m *marble) bXY() (int, int) {
+	// Bresenham dimension
+	return m.b(m.X(), m.Y())
+
+}
+
+func (m *marble) BXY() (int, int) {
+	// Bresenham dimension
+	return m.bx, m.by
+}
+
+func (m *marble) IBXY(gridSize int, x, y int) (float64, float64) {
+	gd := gridSize * 2
+	gr := gridSize
+	height := m.windowHeight
+	width := m.windowWidth
+	for j := 0; j < height/gd+1; j += 1 {
+		for i := 0; i < width/gd+1; i += 1 {
+			cx := i * gd
+			if j%2 == 0 {
+				cx += gr
+			}
+			if cx == 0 || cx+gr >= width {
+				continue
+			}
+			cy := height - gr - j*gd
+			if cx/gr == x && cy/gr == y {
+				return float64(cx), float64(cy)
+			}
+		}
+	}
+
+	return 0, 0
+}
+
+func (m *marble) b(x, y float64) (int, int) {
+	gd := m.gridSize * 2
+	gr := m.gridSize
+	height := m.windowHeight
+	width := m.windowWidth
+	ix := 0
+	iy := 0
+	deltas := make(map[int]map[int][]float64, 0)
+	for j := 0; j < height/gd+1; j += 1 {
+		for i := 0; i < width/gd+1; i += 1 {
+			cx := i * gd
+			if j%2 == 0 {
+				cx += gr
+			}
+			if cx == 0 || cx+gr >= width {
+				continue
+			}
+			cy := height - gr - j*gd
+			if _, exists := deltas[cy/gr]; !exists {
+				deltas[cy/gr] = make(map[int][]float64, 0)
+			}
+			deltas[cy/gr][cx/gr] = []float64{math.Abs(x - float64(cx)), math.Abs(y - float64(cy))}
+		}
+	}
+	minDelta := float64(height+width) * 2
+	// find the min delta
+	for cy, row := range deltas {
+		for cx, d := range row {
+			if minDelta > d[0]+d[1] {
+				ix = cx
+				iy = cy
+				minDelta = d[0] + d[1]
+			}
+		}
+	}
+
+	return ix, iy
+}
 
 func (m *marble) willPointIntersectsWith(x, y float64, cm Object) (bool, float64, float64) {
 	x = math.Cos(m.a)*m.speed + x
@@ -210,85 +419,12 @@ func (m *marble) willPointIntersectsWith(x, y float64, cm Object) (bool, float64
 	}
 }
 
-func (m *marble) GetDistanceTo(_m ...interface{}) float64 {
-	if len(_m) == 1 {
-		switch t := _m[0].(type) {
-		case Object:
-			dx := m.X() - t.X()
-			dy := m.Y() - t.Y()
-			return math.Sqrt(dx*dx + dy*dy)
-		}
-	}
-	if len(_m) == 2 {
-		x := _m[0].(float64)
-		y := _m[1].(float64)
-		dx := m.X() - x
-		dy := m.Y() - y
-
-		return math.Sqrt(dx*dx + dy*dy)
+func reverseSliceByte(a []byte) []byte {
+	s := make([]byte, len(a))
+	copy(s, a)
+	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
+		s[i], s[j] = s[j], s[i]
 	}
 
-	return -1
-}
-
-func (m *marble) Rotate(da float64) {
-	m.a += da
-}
-
-func (m *marble) SetAngle(a float64) {
-	m.a = a
-}
-
-func (m *marble) X() float64 {
-	return m.x
-}
-
-func (m *marble) Y() float64 {
-	return m.y
-}
-
-func (m *marble) CX() int {
-	return int(math.Round(m.x))
-}
-
-func (m *marble) CY() int {
-	return int(math.Round(m.y))
-}
-
-func (m *marble) Color() byte {
-	return m.color
-}
-
-func (m *marble) A() float64 {
-	return m.a
-}
-
-func (m *marble) R() float64 {
-	return m.r
-}
-
-func (m *marble) D() float64 {
-	return m.r * 2
-}
-
-func (m *marble) CR() int {
-	return int(math.Round(m.r))
-}
-
-func (m *marble) CD() int {
-	return m.CR() * 2
-}
-
-func (m *marble) MoveTo(x, y float64) {
-	m.x = x
-	m.y = y
-}
-
-func GetRandomColor() byte {
-	return byte(mlib.GetRandomBtw(0, 4))
-}
-
-func (m *marble) Contains(x, y float64) bool {
-	d := m.GetDistanceTo(x, y)
-	return d >= 0 && d <= m.R()
+	return s
 }

@@ -1,4 +1,4 @@
-There are many articles on the Internet about PNG format. Some are good, some are not. This attempt is to provide
+There are many articles on the Internet about PNG format. Handmade network already has an excelent one too. In general some articles are good, some are not. This attempt is to provide
 my own understanding of the format. I hope it will be useful to someone. With this being said let's jump into it.
 
 High level overview
@@ -12,7 +12,7 @@ I want to start with a picture showing the structure of a PNG file.
            -----------------------------------------------------------------
            | There numerous types of chunks. We are interested
            |   in IHDR, IDAT, IEND, PLTE
-           | IHDR usually comes first, then PLTE, then IDAT, then IEND
+           | IHDR always comes first, then PLTE, then IDAT, then IEND
            | While all the chunks are different,
            | they have in common this structure:
            |    4 bytes length
@@ -97,7 +97,6 @@ The uncompressedImgData has next structure (I will use RGBA color type):
     |Filter byte|Red|Green|Blue|Alpha|
     --------------------------------------------------------------------------------------------
 
-
 Notice the Filter byte? It's a byte that is added before each scan line. It's used to improve the compression.
 But we are very close to outputting the image to the screen. See the next picture (it shows the direction
 of how to go through the image data):
@@ -129,10 +128,10 @@ the right until you reach the end of the line. Then you go to the next line and 
 
     for y = 0 to height
         for x = 0 to width
-            r = uncompressedImgData[y * width * 4 + x]
-            g = uncompressedImgData[y * width * 4 + x + 1]
-            b = uncompressedImgData[y * width * 4 + x + 2]
-            a = uncompressedImgData[y * width * 4 + x + 3]
+            r = uncompressedImgData[y * width * 4 + x * 4]
+            g = uncompressedImgData[y * width * 4 + x * 4 + 1]
+            b = uncompressedImgData[y * width * 4 + x * 4+ 2]
+            a = uncompressedImgData[y * width * 4 + x * 4+ 3]
             output pixel to the screen:
                 PutPixel(x, y, r, g, b, a)
 
@@ -242,19 +241,18 @@ Ok, so after we have applied the filters we are ready to output the image to the
 pseudo code:
         for y = 0 to height
             for x = 0 to width
-                r = filteredImgData[y * width * 4 + x]
-                g = filteredImgData[y * width * 4 + x + 1]
-                b = filteredImgData[y * width * 4 + x + 2]
-                a = filteredImgData[y * width * 4 + x + 3]
+                r = filteredImgData[y * width * 4 + x * 4]
+                g = filteredImgData[y * width * 4 + x * 4 + 1]
+                b = filteredImgData[y * width * 4 + x * 4 + 2]
+                a = filteredImgData[y * width * 4 + x * 4 + 3]
                 output pixel to the screen:
                     PutPixel(x, y, r, g, b, a)
-
 
 Now this all should be correct - the filter byte is no longer ignored here.
 ================================================================================================
 What about the interlaced images?
 We will not have a single rectangle of bytes in this case. An interlaced image is a series of
-reduced images. We will have only portions of the whole image. There are 7 passes to go trough,
+reduced images. We will have only portions of the whole image. There are 7 passes to go through,
 7 reduced images. If the whole image has 100% of data, a reduced image contains only N % of the whole
 data, something like:
     allPixels = pixels from pass 1 + pixels from pass2 ... + pixels from pass7
@@ -350,14 +348,14 @@ I want to start with the structure again:
 
                 where BLOCK has next structure:
                     HEADER + DATA
-                        HEADER is 3 bytes long:
+                        HEADER is 3 bits long:
                             BFINAL (1 bit)
                             BTYPE (2 bits)
                         DATA is variable length (more about it later)
                 if BFINAL is set then it's the last block (we reached BLOCKN from the illustration above)
 
 CM  is always = 8
-CINFO is always = 7
+CINFO is usually = 7
 
 So you can check your code at this point if you have these values equal to the 8 and 7 accordingly.
 If not, you are doing something wrong.
@@ -402,7 +400,6 @@ next byte.
        one bit at a time. The direction of the stream:
 
        <---------------------------------<----------------------<-------------------
-
 
 Ok, if we work on a bit level why do we need to account for the byte boundaries? Let me illustrate:
 
@@ -452,8 +449,9 @@ What documentation states that you actually can't do that and need to account fo
                                                                                            block HEADER
 
 I hope it makes sense now.
-NLEN is the one's complement of LEN. It's used to check the integrity of the data. If LEN and NLEN don't match
-then there is an error in the data. But we can ignore this for now.
+NLEN is the one's complement of LEN:
+    NLEN = XOR(LEN)
+It's used to check the integrity of the data. If LEN and NLEN don't match then there is an error in the data.
 
 --------------------------------
 Dynamic Huffman codes
@@ -480,15 +478,15 @@ position to the previous occurrence of the sequence.
 Sounds a bit confusing so let's illustrate it:
 
     Suppose we have the following data:
-        ABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 
-A lot's of letters A. We can compress them using LZ77 algorithm. The compressed data will look like this:
-    AB<65, 1>
-    where 65 is the length of the sequence and 1 is the distance to the previous occurrence of the sequence.
-    A is the byte that is repeated 65 times.
+Dozens of letters A. We can compress them using LZ77 algorithm. The compressed data will look like this:
+    AB<101, 1>
+    where 101 is the length of the sequence and 1 is the distance to the previous occurrence of the sequence.
+    A is the byte that is repeated 101 times.
 
-AB651 is much shorter than the original data. Ok if the idea in general more or less is clear, there are some
-problems with it. How do we know that 65 means the length of the sequence and 1 is the distance to the previous
+AB1011 is much shorter than the original data. Ok if the idea in general more or less is clear, there are some
+problems with it. How do we know that 101 means the length of the sequence and 1 is the distance to the previous
 occurrence? How to distinguish between the length of the sequence and the distance to the previous occurrence
 and the actual data? Good question! We need a map, or it's called alphabet in the LZ77 algorithm.
 
@@ -588,7 +586,7 @@ Alright, this is the idea in general, replace long sequence of bits with their s
 if we were to have a static map like with LZ77 alphabets it would not be that efficient. The next step is to
 find the most frequently used symbols in the data we want to compress and assign the shortest codes to them.
 It makes sense, consider this string for example:
-        AAAABAAAACCAAAADAAAAEAAAA
+        AAAABAAAACAAAADAAAAEAAAA
         then if we assign 00 to A
         A - 00
         B - 01
@@ -602,7 +600,7 @@ So Huffman in 1951 while being a student came up with what later will be called 
 I don't want to go in full detail, as the theory that hides behind this simple facade is not small.
 You can check wikipedia to see that it's quite complex. What is important for us is that there is some algorithm
 that when given a sequence of bytes produces a map of much shorter codes:
-    input AAAABAAAACCAAAADAAAAEAAAA
+    input AAAABAAAACAAAADAAAAEAAAA
     Huffman(AAAABAAAACAAAADAAAAEAAAA) = our map
         A - 00
         B - 01
@@ -610,7 +608,7 @@ that when given a sequence of bytes produces a map of much shorter codes:
         D - 101
         E - 111
 And it uses the number of occurrences to produce that map, it doesn't need the actual symbols:
-    input AAAABAAAACCAAAADAAAAEAAAA
+    input AAAABAAAACAAAADAAAAEAAAA
     from input we can see that the letter A happens 20 times in the data, B only once and so on
     20,1,1,1,1
     so the Huffman function when given this information will produce the next map:
@@ -660,7 +658,7 @@ as you can see to get the actual number for literal/length codes we need to add 
 
 while nlit and ndist are more or less clear (we will cover them in more details anyway), the HCLEN part
 needs further explanation:
-    the information needed to generate Huffman bit sequences for the length/distance (LIT) and
+    the information needed to generate Huffman bit sequences for the length/literal (LIT) and
     for the distances (DIST) itself can occupy space, so the idea is to use one more Huffman map this time just to
     compress that information! Yeah, I hear you, it's quite overwhelming! This is why
     it can be so confusing. It took me some time to figure it out.
@@ -715,7 +713,7 @@ sequences to the symbols we want to compress:
         how many sequences of this given length
     we can generate the actual sequences!
 
-As nn example let's have code length 4 and the number of occurrences 7:
+As an example let's have code length 4 and the number of occurrences 7:
 
         1000 \
         1001  \
@@ -792,7 +790,6 @@ WRONG! We need to use the natural order! I.e.:
 
 as 0 < 18.
 
-
 Having this map now we can decode LIT and DIST information:
     So we read nlit Huffman codes next. The CLEN map will give us:
 numbers from the dictionary:
@@ -825,7 +822,7 @@ Using pseudo code:
                 output.append(0)
             }
         if n == 18
-            bits = read(3 bits)
+            bits = read(7 bits)
             for j from 0 to 11 + toInt(bits)
                 output.append(0)
             }
@@ -877,7 +874,7 @@ For DIST we do the same:
                    outputForDist.append(0)
                }
            if n == 18
-               bits = read(3 bits)
+               bits = read(7 bits)
                for j from 0 to 11 + toInt(bits)
                    outputForDist.append(0)
                }
@@ -941,7 +938,7 @@ Let's start with an example again:
         3                  2
         4                  7
 
-    we begin with 00 the first sequence is kinda intuitive
+    we begin with 00 the very first sequence is kinda intuitive
     then we do next:
         nextSequence = (prevSequence + 1) << 1
     so for 3 we start with:
@@ -1019,7 +1016,8 @@ So if the Huffman code is 00110000 it means 0, 00110001 - 1, and so on...
 Distance codes 0-31 are represented by (fixed-length) 5-bit codes
 
 ================================================================================================
-The final words. I want to share some of the links I used when was trying to understand PNG format:
+The final words. There are still plenty of things that I intentionally left not covered. Things like the bit order for Huffman, or other types of chunks, and so on. You should check the official documentation for further information. In this article, I only barely touched the surface of the iceberg that PNG is. Finally I want to share some of the links I used when I was trying to understand the PNG format:
+
 http://www.libpng.org/
 https://handmade.network/forums/articles/t/2363-implementing_a_basic_png_reader_the_handmade_way
 https://commandlinefanatic.com/cgi-bin/showarticle.cgi?article=art001
