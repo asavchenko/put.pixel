@@ -10,6 +10,12 @@ import (
 	"time"
 )
 
+const DIRECTION_TO_THE_RIGHT = 0
+const DIRECTION_TO_THE_TOP = 1
+const DIRECTION_TO_THE_LEFT = 2
+const DIRECTION_TO_THE_BOTTOM = 3
+const DIRECTION_STOP = 4
+
 type group struct {
 	windowWidth  int
 	windowHeight int
@@ -17,13 +23,20 @@ type group struct {
 	gridCellSize int
 	marbles      []Object
 	bcells       [][]int
+	bscreen      [][]int
 }
 
 func GetNewGroup(width, height, d int, gridSize int) Group {
 	gd := gridSize * 2
 	items := make([]Object, 0)
 	bcells := make([][]int, 0)
-	for j := 0; j < height/gd-5; j += 1 {
+	bscreen := make([][]int, height/gridSize)
+	for j := 0; j < height/gd+1; j += 1 {
+		line := make([]int, width/gridSize)
+		y := height - gridSize - j*gd
+		if y/gridSize < 1 {
+			continue
+		}
 		for i := 0; i < width/gd+1; i += 1 {
 			x := i * gd
 			if j%2 == 0 {
@@ -32,7 +45,20 @@ func GetNewGroup(width, height, d int, gridSize int) Group {
 			if x == 0 || x+gridSize >= width {
 				continue
 			}
-			y := height - gridSize - j*gd
+			line[x/gridSize] = 1
+		}
+		bscreen[y/gridSize] = line
+	}
+	for j := 0; j < height/gd-5; j += 1 {
+		y := height - gridSize - j*gd
+		for i := 0; i < width/gd+1; i += 1 {
+			x := i * gd
+			if j%2 == 0 {
+				x += gridSize
+			}
+			if x == 0 || x+gridSize >= width {
+				continue
+			}
 			item := GetNew(x, y, d, GetRandomColor(), width, height, gridSize)
 			item.SetSpeed(item.R())
 			item.SetAngle(math.Pi * 3 / 2)
@@ -47,7 +73,7 @@ func GetNewGroup(width, height, d int, gridSize int) Group {
 		}
 	}
 
-	return &group{width, height, d, gridSize, items, bcells}
+	return &group{width, height, d, gridSize, items, bcells, bscreen}
 }
 
 func (g *group) MoveDown() {
@@ -61,6 +87,7 @@ func (g *group) GetBIntersection(cm Object) (bool, float64, float64) {
 	if x0 == x1 && y1 == y0 {
 		return false, 0, 0
 	}
+
 	dx := mlib.AbsInt(x1 - x0)
 	sx := 1
 	if x0 >= x1 {
@@ -74,7 +101,7 @@ func (g *group) GetBIntersection(cm Object) (bool, float64, float64) {
 	e := dx + dy
 
 	for {
-		if g.inBcells(x0, y0) {
+		if g.inBcells(x0, y0) || y0 >= len(g.bscreen)-1 {
 			cx, cy := g.GetFirstFreeBCell(x0, y0)
 			x, y := cm.IBXY(g.gridCellSize, cx, cy)
 			return true, x, y
@@ -100,31 +127,22 @@ func (g *group) GetBIntersection(cm Object) (bool, float64, float64) {
 }
 
 func (g *group) isBXYValid(x, y int) bool {
-	gd := g.gridCellSize * 2
-	gr := g.gridCellSize
-	height := g.windowHeight
-	width := g.windowWidth
-	for j := 0; j < height/gd+1; j += 1 {
-		for i := 0; i < width/gd+1; i += 1 {
-			cx := i * gd
-			if j%2 == 0 {
-				cx += gr
-			}
-			if cx == 0 || cx+gr >= width {
-				continue
-			}
-			cy := height - gr - j*gd
-			if cx/gr == x && y == cy/gr {
-				return true
-			}
-		}
+	if y < 0 || x < 0 || y >= len(g.bscreen) {
+		return false
+	}
+	if len(g.bscreen[y]) < 1 || x >= len(g.bscreen[y]) {
+		return false
 	}
 
-	return false
+	return g.bscreen[y][x] == 1
 }
 
 func (g *group) GetFirstFreeBCell(x, y int) (int, int) {
 	log(x, y, x+2, y+2, x-2, y-2)
+	if g.isBXYValid(x, y) && !g.inBcells(x, y) {
+		log(x, y)
+		return x, y
+	}
 	if g.isBXYValid(x, y+2) && !g.inBcells(x, y+2) {
 		log(x, y+2)
 		return x, y + 2
@@ -203,15 +221,6 @@ func (g *group) Show() {
 	}
 }
 
-func (g *group) removeHanging() {
-	for _, m := range g.marbles {
-		mbx, mby := m.BXY()
-		if !g.inBcells(mbx-1, mby+1) && !g.inBcells(mbx+1, mby+1) && !g.inBcells(mbx-2, mby) && !g.inBcells(mbx+2, mby) {
-
-		}
-	}
-}
-
 func (g *group) RemoveMatched(cm Object) {
 	itemsToRemove := g.getMarblesToRemove(g.marbles, cm)
 	if len(itemsToRemove) < 3 {
@@ -229,6 +238,118 @@ func (g *group) RemoveMatched(cm Object) {
 			bcellsToRemove = append(bcellsToRemove, bc)
 		}
 	}
+	for _, bc := range g.bcells {
+		found := false
+		for _, bcr := range bcellsToRemove {
+			if bcr[0] == bc[0] && bcr[1] == bc[1] {
+				found = true
+				break
+			}
+		}
+		if !found {
+			bcells = append(bcells, bc)
+		}
+	}
+
+	g.bcells = bcells
+	g.removeHanging()
+}
+
+func (g *group) removeHanging() {
+	labels := make([][]int, len(g.bscreen))
+	for y := 0; y < len(g.bscreen); y++ {
+		labels[y] = make([]int, len(g.bscreen[y]))
+		for x := 0; x < len(g.bscreen[y]); x++ {
+			labels[y][x] = -1
+		}
+	}
+	label := 0
+	for y := 0; y < len(g.bscreen); y++ {
+		for x := 0; x < len(g.bscreen[y]); x++ {
+			l := g.getBNeighborsLabel(x, y, labels, label)
+			if l < 0 {
+				continue
+			}
+			if label < l {
+				label = l
+			}
+			labels[y][x] = l
+		}
+	}
+
+	labelSets := make(map[int][]int, 0)
+	for y := 0; y < len(g.bscreen); y++ {
+		for x := 0; x < len(g.bscreen[y]); x++ {
+			l := labels[y][x]
+			if l == -1 {
+				continue
+			}
+			if _, exists := labelSets[l]; !exists {
+				labelSets[l] = getUniqueIntSlice(g.getBNeighborLabels(x, y, labels))
+			} else {
+				labelSets[l] = getUniqueIntSlice(append(labelSets[l], g.getBNeighborLabels(x, y, labels)...))
+			}
+		}
+	}
+	//log(labelSets)
+	for k, arr := range labelSets {
+		for _, a := range arr {
+			labelSets[k] = append(labelSets[k], labelSets[a]...)
+		}
+		labelSets[k] = getUniqueIntSlice(labelSets[k])
+	}
+	labelMapping := make(map[int]int, 0)
+	for k, arr := range labelSets {
+		if len(arr) == 0 {
+			labelMapping[k] = k
+			continue
+		}
+		labelMapping[k] = minIntSlice(arr)
+	}
+	//log(labelMapping)
+	for y := 0; y < len(g.bscreen); y++ {
+		for x := 0; x < len(g.bscreen[y]); x++ {
+			l := labels[y][x]
+			if l == -1 {
+				labels[y][x] = 0
+			}
+			labels[y][x] = labelMapping[l]
+		}
+	}
+	labelsToKeep := make([]int, 0)
+	for {
+		y := len(g.bscreen) - 1
+		for x := 0; x < len(g.bscreen[y]); x++ {
+			l := labels[y][x]
+			if l > 0 {
+				labelsToKeep = append(labelsToKeep, l)
+			}
+		}
+		break
+	}
+	//log(getUniqueIntSlice(labelsToKeep))
+	marblesToRemove := make([]Object, 0)
+	bcellsToRemove := make([][]int, 0)
+	for _, bc := range g.bcells {
+		x := bc[0]
+		y := bc[1]
+		l := labels[y][x]
+		toRemove := true
+		for _, lk := range labelsToKeep {
+			if lk == l {
+				toRemove = false
+				break
+			}
+		}
+		if !toRemove {
+			continue
+		}
+		bcellsToRemove = append(bcellsToRemove, []int{x, y})
+		marblesToRemove = append(marblesToRemove, g.getMarbleByBxBy(x, y))
+	}
+	g.marbles = g.getMarblesWithout(g.marbles, marblesToRemove)
+	//log(labels)
+	bcells := make([][]int, 0)
 	for _, bc := range g.bcells {
 		found := false
 		for _, bcr := range bcellsToRemove {
@@ -426,10 +547,8 @@ func (g *group) GetFIntersection(cm Object) (bool, float64, float64) {
 		x = (points[0][0] + cm.X()) / 2
 		y = (points[0][1] + cm.Y()) / 2
 	}
-	log(x, y)
 	r := d / 4
 	d = r * 2
-	log(r)
 	h := g.windowHeight
 	w := g.windowWidth
 	for i := 0; i < h; i++ {
@@ -444,7 +563,6 @@ func (g *group) GetFIntersection(cm Object) (bool, float64, float64) {
 			}
 		}
 	}
-	log("not found in grid")
 
 	//i * r = x
 	//j * r = y
@@ -511,4 +629,91 @@ func (g *group) GetBottomBorder() int {
 	}
 
 	return bottomBorder
+}
+
+func (g *group) getBNeighborsLabel(x int, y int, labels [][]int, label int) int {
+	if !g.inBcells(x, y) {
+		return -1
+	}
+
+	neighborLabels := g.getBNeighborLabels(x, y, labels)
+	if len(neighborLabels) < 1 {
+		return label + 1
+	}
+
+	return minIntSlice(neighborLabels)
+}
+
+func (g *group) getBNeighborLabels(x int, y int, labels [][]int) []int {
+	neighborLabels := make([]int, 0)
+	if !g.inBcells(x, y) {
+		return neighborLabels
+	}
+
+	if len(labels[y]) < 1 {
+		return neighborLabels
+	}
+	// left
+	if x-2 >= 0 && labels[y][x-2] != -1 {
+		neighborLabels = append(neighborLabels, labels[y][x-2])
+	}
+	// right
+	if x+2 < len(labels[y]) && labels[y][x+2] != -1 {
+		neighborLabels = append(neighborLabels, labels[y][x+2])
+	}
+	// top
+	if y-2 >= 0 && len(labels[y-2]) > 0 && labels[y-2][x] != -1 {
+		neighborLabels = append(neighborLabels, labels[y-2][x])
+	}
+	// bottom
+	if y+2 < len(labels) && len(labels[y+2]) > 0 && labels[y+2][x] != -1 {
+		neighborLabels = append(neighborLabels, labels[y+2][x])
+	}
+	// top left
+	if y-2 >= 0 && x-1 >= 0 && len(labels[y-2]) > 0 && labels[y-2][x-1] != -1 {
+		neighborLabels = append(neighborLabels, labels[y-2][x-1])
+	}
+	// top right
+	if y-2 >= 0 && x+1 < len(labels[y-2]) && len(labels[y-2]) > 0 && labels[y-2][x+1] != -1 {
+		neighborLabels = append(neighborLabels, labels[y-2][x+1])
+	}
+	// bottom left
+	if y+2 < len(labels) && x-1 >= 0 && len(labels[y+2]) > 0 && labels[y+2][x-1] != -1 {
+		neighborLabels = append(neighborLabels, labels[y+2][x-1])
+	}
+	// bottom right
+	if y+2 < len(labels) && x+1 < len(labels[y+2]) && len(labels[y+2]) > 0 && labels[y+2][x+1] != -1 {
+		neighborLabels = append(neighborLabels, labels[y+2][x+1])
+	}
+
+	return neighborLabels
+}
+
+func minIntSlice(a []int) int {
+	m := a[0]
+	for _, e := range a {
+		if m > e {
+			m = e
+		}
+	}
+
+	return m
+}
+
+func getUniqueIntSlice(a []int) []int {
+	b := make([]int, 0)
+	for _, ea := range a {
+		found := false
+		for _, eb := range b {
+			if eb == ea {
+				found = true
+				break
+			}
+		}
+		if !found {
+			b = append(b, ea)
+		}
+	}
+
+	return b
 }

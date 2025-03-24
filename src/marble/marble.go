@@ -71,8 +71,6 @@ func init() {
 		}
 		//imgData = flippedImgData
 
-		log(len(flippedImgData), len(imgData))
-
 		if pngReader.GetColorType() != pngreader.ColorTypeTruecolorAlpha {
 			panic("unsupported color scheme for marble asset")
 		}
@@ -128,18 +126,6 @@ func (m *marble) Show() {
 	x := m.CX() - m.CR()
 	y := m.CY() - m.CR()
 	ogl.PutByteBitmap(x, y, m.width*4, m.height, m.imgData)
-	return
-	for i := 0; i < m.height; i++ {
-		for j := 0; j < m.width; j += 1 {
-			index := i*m.width*4 + j*4
-			if index >= len(m.imgData) {
-				break
-			}
-			if m.imgData[index+3] != 0 {
-				ogl.PutPixel(x+j, y-i, m.imgData[index], m.imgData[index+1], m.imgData[index+2])
-			}
-		}
-	}
 }
 
 func (m *marble) Move() {
@@ -268,9 +254,9 @@ func (m *marble) A() float64 {
 }
 
 func (m *marble) R() float64 {
-	if m.isMoving {
-		return m.r * 8 / 9
-	}
+	//if m.isMoving {
+	//	return m.r * 8 / 9
+	//}
 
 	return m.r
 }
