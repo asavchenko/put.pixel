@@ -255,6 +255,7 @@ func (g *group) RemoveMatched(cm Object) {
 	g.removeHanging()
 }
 
+// see https://en.wikipedia.org/wiki/Connected-component_labeling
 func (g *group) removeHanging() {
 	labels := make([][]int, len(g.bscreen))
 	for y := 0; y < len(g.bscreen); y++ {
