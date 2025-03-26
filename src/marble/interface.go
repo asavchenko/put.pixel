@@ -19,7 +19,6 @@ type Object interface {
 	SetAngle(float64)
 	Color() byte
 	IntersectsWith(Object) bool
-	WillIntersectsWith(Object) (bool, float64, float64)
 	GetDistanceTo(...interface{}) float64
 	IsMoving() bool
 	SetIsMoving(bool)
@@ -39,7 +38,6 @@ type Group interface {
 	GetRightBorder() int
 	GetBottomBorder() int
 	MoveDown()
-	GetFIntersection(Object) (bool, float64, float64)
 	GetBIntersection(Object) (bool, float64, float64)
 	Show()
 	RemoveMatched(Object)

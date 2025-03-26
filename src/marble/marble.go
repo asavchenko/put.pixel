@@ -28,7 +28,7 @@ type marble struct {
 	isMoving     bool
 	color        byte
 	isRotated    bool
-	imgData      []byte
+	imgData      []uint32
 }
 
 var colorPathToAssetMap = map[byte]string{
@@ -39,12 +39,12 @@ var colorPathToAssetMap = map[byte]string{
 	PURPLE: "src/marble/purple.png",
 }
 
-var colorImageMap map[byte][]byte
+var colorImageMap map[byte][]uint32
 var imgWidth int
 var imgHeight int
 
 func init() {
-	colorImageMap = make(map[byte][]byte)
+	colorImageMap = make(map[byte][]uint32)
 	imgWidth = 0
 	imgHeight = 0
 	for color, pathToAsset := range colorPathToAssetMap {
@@ -56,20 +56,19 @@ func init() {
 		if err != nil {
 			panic(err)
 		}
+		imgDataRGBA := make([]uint32, len(imgData)>>2)
+		for i := 0; i < len(imgData); i += 4 {
+			imgDataRGBA[i/4] = uint32(imgData[i+3])<<24 | uint32(imgData[i+2])<<16 | uint32(imgData[i+1])<<8 | uint32(imgData[i])
+		}
 		imgWidth = pngReader.GetImageWidth()
 		imgHeight = pngReader.GetImageHeight()
-		flippedImgData := make([]byte, 0)
+		flippedImgData := make([]uint32, 0)
 		for j := 0; j < imgHeight; j++ {
-			line := make([]byte, imgWidth*4)
-			for i := 0; i < imgWidth; i++ {
-				line[4*i] = imgData[j*imgWidth*4+4*i]
-				line[4*i+1] = imgData[j*imgWidth*4+4*i+1]
-				line[4*i+2] = imgData[j*imgWidth*4+4*i+2]
-				line[4*i+3] = imgData[j*imgWidth*4+4*i+3]
-			}
+			line := make([]uint32, imgWidth)
+			startIdx := j * imgWidth
+			copy(line[0:], imgDataRGBA[startIdx:startIdx+imgWidth])
 			flippedImgData = append(line, flippedImgData...)
 		}
-		//imgData = flippedImgData
 
 		if pngReader.GetColorType() != pngreader.ColorTypeTruecolorAlpha {
 			panic("unsupported color scheme for marble asset")
@@ -84,7 +83,7 @@ func GetNew(x0, y0 int, size int, color byte, windowWidth, windowHeight int, gri
 	if !exists {
 		return nil
 	}
-	_copyData := make([]byte, len(data))
+	_copyData := make([]uint32, len(data))
 	for k, v := range data {
 		_copyData[k] = v
 	}
@@ -125,7 +124,7 @@ func (m *marble) resize(size int) {
 func (m *marble) Show() {
 	x := m.CX() - m.CR()
 	y := m.CY() - m.CR()
-	ogl.PutByteBitmap(x, y, m.width*4, m.height, m.imgData)
+	ogl.PutBitmap(x, y, m.width, m.height, m.imgData)
 }
 
 func (m *marble) Move() {
@@ -160,42 +159,6 @@ func (m *marble) IntersectsWith(_m Object) bool {
 	return m.GetDistanceTo(_m) < m.D()
 }
 
-func (m *marble) WillIntersectsWith(cm Object) (bool, float64, float64) {
-	i, x, y := m.willCenterIntersectsWith(cm)
-	if !i {
-		i, x, y = m.willBottomIntersectsWith(cm)
-		if !i {
-			i, x, y = m.willTopIntersectsWith(cm)
-			if !i {
-				return false, 0, 0
-			} else {
-				return true, x, y
-			}
-		} else {
-			return true, x, y
-		}
-	} else {
-		return true, x, y
-	}
-}
-
-func (m *marble) willTopIntersectsWith(cm Object) (bool, float64, float64) {
-	x := math.Cos(m.a+math.Pi/2)*m.R() + m.x
-	y := math.Sin(m.a+math.Pi/2)*m.R() + m.y
-
-	return m.willPointIntersectsWith(x, y, cm)
-}
-
-func (m *marble) willBottomIntersectsWith(cm Object) (bool, float64, float64) {
-	x := math.Cos(m.a-math.Pi/2)*m.R() + m.x
-	y := math.Sin(m.a-math.Pi/2)*m.R() + m.y
-
-	return m.willPointIntersectsWith(x, y, cm)
-}
-
-func (m *marble) willCenterIntersectsWith(cm Object) (bool, float64, float64) {
-	return m.willPointIntersectsWith(m.X(), m.Y(), cm)
-}
 func (m *marble) GetDistanceTo(_m ...interface{}) float64 {
 	if len(_m) == 1 {
 		switch t := _m[0].(type) {
@@ -254,10 +217,6 @@ func (m *marble) A() float64 {
 }
 
 func (m *marble) R() float64 {
-	//if m.isMoving {
-	//	return m.r * 8 / 9
-	//}
-
 	return m.r
 }
 
@@ -368,49 +327,4 @@ func (m *marble) b(x, y float64) (int, int) {
 	}
 
 	return ix, iy
-}
-
-func (m *marble) willPointIntersectsWith(x, y float64, cm Object) (bool, float64, float64) {
-	x = math.Cos(m.a)*m.speed + x
-	y = math.Sin(m.a)*m.speed + y
-	ta := math.Tan(m.A())
-	a := ta*ta + 1
-	if a == 0 {
-		//log(ta*ta+1, "=", 0)
-		return false, 0, 0
-	}
-	c1 := y - cm.Y() - ta*x
-	b := 2*ta*c1 - 2*cm.X()
-	c := c1*c1 + cm.X()*cm.X() - cm.R()*cm.R()
-	ds := b*b - 4*a*c
-	if ds < 0 {
-		//log(ds, "<", 0, "b=", b, "4*a*c=", 4*a*c)
-		return false, 0, 0
-	}
-	ds = math.Sqrt(ds)
-
-	x1 := (-b + ds) / 2 / a
-	x2 := (-b - ds) / 2 / a
-	if x1 < x || x1 > x+m.GetSpeed() {
-		if x2 < x || x2 > x+cm.GetSpeed() {
-			//log(x2, "<", x, "||", x2, ">", x+cm.GetSpeed())
-			return false, 0, 0
-		} else {
-			//log("INTERSECTS! at", x2, ta*(x2-x)+y)
-			return true, x2, ta*(x2-x) + y
-		}
-	} else {
-		//log("INTERSECTS! at", x1, ta*(x1-x)+y)
-		return true, x1, ta*(x1-x) + y
-	}
-}
-
-func reverseSliceByte(a []byte) []byte {
-	s := make([]byte, len(a))
-	copy(s, a)
-	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
-		s[i], s[j] = s[j], s[i]
-	}
-
-	return s
 }

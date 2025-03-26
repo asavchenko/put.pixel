@@ -7,6 +7,10 @@ import (
 	"fmt"
 	"github.com/go-gl/gl/v2.1/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
+	"os"
+	"runtime"
+	"strings"
+	"time"
 )
 
 const (
@@ -17,6 +21,9 @@ const (
 )
 
 var pixelArr *[width * height * 4]byte
+var pixelArrRGBA *[width * height]uint32
+
+//var pixelArrToClearScreen []byte
 
 // var pixelArr []byte
 var window *glfw.Window
@@ -30,6 +37,7 @@ var mouseLeftCallbacks []func(x, y int)
 var keyCombinationCallbacks map[string]map[string]interface{}
 var pressedKeys []glfw.Key
 var lookupTable []int
+var lookupTableRGBA []int
 
 func init() {
 	keyCallbacks = make(map[string]map[glfw.Key][]func(), 0)
@@ -40,7 +48,12 @@ func init() {
 	for i := 0; i < height; i++ {
 		lookupTable[i] = i * width * 4
 	}
+	lookupTableRGBA = make([]int, height)
+	for i := 0; i < height; i++ {
+		lookupTableRGBA[i] = i * width
+	}
 	//pixelArr = make([]byte, width*height*4)
+	//pixelArrToClearScreen = make([]byte, width*height*4)
 }
 
 func Init(fullScreen bool) {
@@ -50,7 +63,7 @@ func Init(fullScreen bool) {
 	glfw.WindowHint(glfw.Resizable, glfw.False)
 	glfw.WindowHint(glfw.ContextVersionMajor, 2)
 	glfw.WindowHint(glfw.ContextVersionMinor, 1)
-	glfw.WindowHint(glfw.DoubleBuffer, glfw.True)
+	glfw.WindowHint(glfw.DoubleBuffer, glfw.False)
 	{
 		var err error
 		window, err = glfw.CreateWindow(width, height, "Title", nil, nil)
@@ -128,7 +141,7 @@ func PutPixel(x, y int, color ...byte) {
 
 func UnsafePutPixelRGBA(x, y int, color uint32) {
 	//                                                       r                   g                  b           a
-	copy(pixelArr[lookupTable[y]+x<<2:], []byte{byte(color >> 24), byte(color >> 16), byte(color >> 8), byte(color)})
+	pixelArrRGBA[lookupTableRGBA[y]+x] = color
 }
 
 func PutPixelRGB(x, y int, color uint32) {
@@ -147,9 +160,15 @@ func GetPixel(x, y int) uint32 {
 }
 
 func GetPixelUnsafe(x, y int) uint32 {
-	i := lookupTable[y] + x<<2
+	i := lookupTableRGBA[y] + x
 	//             a                         b                          g                            r
-	return uint32(pixelArr[i]) + uint32(pixelArr[i+1])<<8 + uint32(pixelArr[i+2])<<16 + uint32(pixelArr[i+3])<<24
+	return pixelArrRGBA[i]
+}
+
+func GetPixelUnsafeRGBA(x, y int) uint32 {
+	i := lookupTableRGBA[y] + x
+	//             a                         b                          g                            r
+	return pixelArrRGBA[i]
 }
 
 func GetWindowWidth() int {
@@ -178,16 +197,17 @@ func draw(window *glfw.Window, run func()) {
 	if !gl.UnmapBuffer(gl.PIXEL_UNPACK_BUFFER) {
 		return
 	}
-	pixelArr = (*[width * height * 4]byte)(pboPtr)
+	//pixelArr = (*[width * height * 4]byte)(pboPtr)
+	pixelArrRGBA = (*[width * height]uint32)(pboPtr)
 	//pixelArr = unsafe.Slice((*byte)(pboPtr), width*height*3)
 	//pixelArr = (*[width * height * 3]byte)(pboPtr)[:width*height*3]
 
 	//copy((*[width * height * 3]byte)(pboPtr)[:width*height*3], pixelArr)
-	ClearScreen()
+	ClearScreenRGBA()
 	run()
 
 	gl.DrawPixels(width, height, gl.RGBA, gl.UNSIGNED_BYTE, nil)
-	SwapBuffers()
+	//SwapBuffers()
 
 	glfw.PollEvents()
 	processInput(window)
@@ -201,14 +221,15 @@ func PutBitmap(x, y int, w, h int, bitmap []uint32) {
 			y += 1
 			continue
 		}
-		idx := lookupTable[y] + x<<2
+		idx := lookupTableRGBA[y] + x
+		//idx := lookupTable[y] + x
 
-		if idx >= len(pixelArr) || idx < 0 {
+		if idx >= len(pixelArrRGBA) || idx < 0 {
 			di += w
 			y += 1
 			continue
 		}
-		copy(pixelArr[idx:], toBytes(bitmap[di:di+w]))
+		copy(pixelArrRGBA[idx:], bitmap[di:di+w])
 		di += w
 		y += 1
 	}
@@ -265,14 +286,21 @@ func toBytes(arr []uint32) []byte {
 
 func SwapBuffers() {
 	//gl.Flush()
-	//gl.Finish()
-	window.SwapBuffers()
+	gl.Finish()
+	//window.SwapBuffers()
 	//gl.Flush()
 }
 
 func ClearScreen() {
+	//copy(pixelArr[:], pixelArrToClearScreen)
 	for i := range pixelArr {
 		pixelArr[i] = 0
+	}
+}
+func ClearScreenRGBA() {
+	//copy(pixelArr[:], pixelArrToClearScreen)
+	for i := range pixelArrRGBA {
+		pixelArrRGBA[i] = 0
 	}
 }
 
@@ -280,4 +308,33 @@ func FillScreen(color byte) {
 	for i := range pixelArr {
 		pixelArr[i] = color
 	}
+}
+
+func log(msgs ...interface{}) {
+	_, f, line, _ := runtime.Caller(1)
+	baseDir := getBaseDir()
+
+	relativePath := strings.Replace(f, baseDir+"/", "", -1)
+	formatedMsg := fmt.Sprintln(time.Now().UTC().Format("15:04:05.999 02-01-2006"), fmt.Sprintf("%s:%d", relativePath, line), msgs)
+	fmt.Print(formatedMsg)
+}
+
+func logError(msgs ...interface{}) {
+	_, f, line, _ := runtime.Caller(1)
+	baseDir := getBaseDir()
+
+	relativePath := strings.Replace(f, baseDir+"/", "", -1)
+	formatedMsg := fmt.Sprintln("*********ERROR", time.Now().UTC().Format("15:04:05.999 02-01-2006"), fmt.Sprintf("%s:%d", relativePath, line), msgs)
+	fmt.Print(formatedMsg)
+}
+
+func getBaseDir() string {
+	pwd, err := os.Getwd()
+	if err != nil {
+		logError(err)
+
+		return ""
+	}
+
+	return pwd
 }

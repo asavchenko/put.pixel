@@ -53,11 +53,19 @@ func main() {
 		curMarble.SetIsMoving(true)
 		isMoving = true
 	})
+	start := time.Now()
 	for {
 		if ogl.IsExit() {
 			break
 		}
 		ogl.Draw(func() {
+			defer func() {
+				d := 30*time.Millisecond - time.Since(start)
+				if d > 0 {
+					time.Sleep(d)
+				}
+				ogl.SwapBuffers()
+			}()
 			x, y := ogl.GetMousePosition()
 			a.RotateTo(x, y)
 			nextMarble.Show()
@@ -89,6 +97,8 @@ func main() {
 				//fmt.Println("right edge was hit", curMarble.X(), 180/math.Pi*curMarble.A())
 			}
 		})
+
+		start = time.Now()
 	}
 }
 

@@ -874,20 +874,20 @@ func __lineRGBA(x1, y1, x2, y2 int, color uint32) {
 		if x1 < x2 {
 			//from := (x1 + yTable[y1]) * 4
 			//from := (x1 + y1*width) * 4
-			from := lookupTable[y1] + x1<<2
-			l := (x2 - x1 + 1) << 2
-			for i := 0; i < l; i += 4 {
-				copy(pixelArr[from+i:], []byte{byte(color >> 24), byte(color >> 16), byte(color >> 8), byte(color)})
+			from := lookupTableRGBA[y1] + x1
+			l := x2 - x1 + 1
+			for i := 0; i < l; i += 1 {
+				pixelArrRGBA[from+i] = color
 			}
 			//C.memset(unsafe.Pointer(&(screen[(x1+yTable[y1])*3])), C.int(color), C.ulong((x2-x1+1)*3))
 			return
 		}
 		//from := (x2 + yTable[y1]) * 4
 		//from := (x2 + y1*width) * 4
-		from := lookupTable[y1] + x2<<2
-		l := (x1 - x2 + 1) << 2
-		for i := 0; i < l; i += 4 {
-			copy(pixelArr[from+i:], []byte{byte(color >> 24), byte(color >> 16), byte(color >> 8), byte(color)})
+		from := lookupTableRGBA[y1] + x2
+		l := x1 - x2 + 1
+		for i := 0; i < l; i += 1 {
+			pixelArrRGBA[from+i] = color
 		}
 		// C.memset(unsafe.Pointer(&(screen[(x2+yTable[y1])*3])), C.int(color), C.ulong((x1-x2+1)*3))
 		return

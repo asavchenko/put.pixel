@@ -378,7 +378,7 @@ func (g *group) getMarblesToRemove(marbles []Object, cm Object) []Object {
 		dx := mlib.AbsInt(cmbx - i)
 		dy := mlib.AbsInt(cmby - j)
 		if (dx <= 2 && dy < 1) || (dy == 2 && dx <= 2) {
-			log(cmbx, cmby, i, j)
+			//log(cmbx, cmby, i, j)
 			toRemove = append(toRemove, m)
 		}
 	}
@@ -509,65 +509,6 @@ func getBaseDir() string {
 	}
 
 	return pwd
-}
-
-func (g *group) GetFIntersection(cm Object) (bool, float64, float64) {
-	points := make([][]float64, 0)
-	d := float64(g.marbleSize * 2)
-	for _, m := range g.marbles {
-		if m.X() < cm.X()-d || m.X() > cm.X()+d {
-			continue
-		}
-		if m.Y() > cm.Y()+d || m.Y() < cm.Y()-d {
-			continue
-		}
-
-		i, _, _ := cm.WillIntersectsWith(m)
-		if i {
-			points = append(points, []float64{m.X(), m.Y()})
-		}
-	}
-	if len(points) < 1 {
-		//log("no intersection points", cm.X(), cm.Y())
-		return false, 0, 0
-	}
-	x := float64(0)
-	y := float64(0)
-	if len(points) > 1 {
-		sumX := float64(0)
-		sumY := float64(0)
-		for _, p := range points {
-			sumX += p[0]
-			sumY += p[1]
-		}
-		sumX += cm.X()
-		sumY += cm.Y()
-		x = sumX / (float64(len(points)) + 1)
-		y = sumY / (float64(len(points)) + 1)
-	} else {
-		x = (points[0][0] + cm.X()) / 2
-		y = (points[0][1] + cm.Y()) / 2
-	}
-	r := d / 4
-	d = r * 2
-	h := g.windowHeight
-	w := g.windowWidth
-	for i := 0; i < h; i++ {
-		for j := 0; j < w; j++ {
-			if g.Contains(float64(j)*d+r, float64(h)-float64(i)*d-r) {
-				continue
-			}
-			dx := float64(j)*d + r - x
-			dy := float64(h) - float64(i)*d - r - y
-			if math.Sqrt(dx*dx+dy*dy) < r {
-				return true, float64(j)*d + r, float64(h) - float64(i)*d - r
-			}
-		}
-	}
-
-	//i * r = x
-	//j * r = y
-	return true, x, y
 }
 
 func (g *group) IntersectsWith(cm Object) bool {
