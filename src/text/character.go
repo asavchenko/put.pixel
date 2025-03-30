@@ -1,9 +1,10 @@
-package characters
+package text
 
 import (
-	"assa.com/put.pixel/lib/ogl"
-	"assa.com/put.pixel/src/characters/utf8"
 	"math"
+
+	"assa.com/put.pixel/lib/ogl"
+	"assa.com/put.pixel/src/text/utf8"
 )
 
 const INVISIBLE_COLOR = 0xffffffff

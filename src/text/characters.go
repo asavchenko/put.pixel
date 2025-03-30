@@ -1,8 +1,8 @@
-package characters
+package text
 
 import (
 	"assa.com/put.pixel/lib/log"
-	"assa.com/put.pixel/src/characters/utf8"
+	"assa.com/put.pixel/src/text/utf8"
 )
 
 type area struct {

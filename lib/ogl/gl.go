@@ -23,8 +23,6 @@ const (
 var pixelArr *[width * height * 4]byte
 var pixelArrRGBA *[width * height]uint32
 
-//var pixelArrToClearScreen []byte
-
 // var pixelArr []byte
 var window *glfw.Window
 var buffers [1]uint32
@@ -53,7 +51,6 @@ func init() {
 		lookupTableRGBA[i] = i * width
 	}
 	//pixelArr = make([]byte, width*height*4)
-	//pixelArrToClearScreen = make([]byte, width*height*4)
 }
 
 func Init(fullScreen bool) {
@@ -81,6 +78,9 @@ func Init(fullScreen bool) {
 	version := gl.GoStr(gl.GetString(gl.VERSION))
 	fmt.Println("OpenGL version", version)
 
+	gl.Enable(gl.BLEND)
+	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+	gl.ClearColor(0.0, 0.0, 0.0, 0.0)
 	gl.GenBuffers(1, &buffers[0])
 	glfw.SwapInterval(1)
 
@@ -285,20 +285,18 @@ func toBytes(arr []uint32) []byte {
 }
 
 func SwapBuffers() {
-	//gl.Flush()
-	gl.Finish()
+	gl.Flush()
+	//gl.Finish()
 	//window.SwapBuffers()
 	//gl.Flush()
 }
 
 func ClearScreen() {
-	//copy(pixelArr[:], pixelArrToClearScreen)
 	for i := range pixelArr {
 		pixelArr[i] = 0
 	}
 }
 func ClearScreenRGBA() {
-	//copy(pixelArr[:], pixelArrToClearScreen)
 	for i := range pixelArrRGBA {
 		pixelArrRGBA[i] = 0
 	}
