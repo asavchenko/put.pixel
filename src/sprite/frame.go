@@ -3,6 +3,9 @@ package sprite
 import (
 	"fmt"
 	"math"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"assa.com/put.pixel/lib/log"
 	"assa.com/put.pixel/lib/ogl"
@@ -15,21 +18,53 @@ type frame struct {
 	height            int
 	direction         int
 	allowedDirections []int
+	imgName           string
 }
 
-func GetNewFrame(pathToImg string, width, height int) Frame {
+func GetFrames(pathToFolder string) []Frame {
+	frames := make([]Frame, 0)
+	if err := filepath.Walk(pathToFolder, func(path string, info os.FileInfo, err error) error {
+		if info.IsDir() {
+			return nil
+		}
+		if !strings.Contains(info.Name(), ".png") {
+			return nil
+		}
+		f := GetNewFrame(path)
+		if f != nil {
+			f.SetImgName(info.Name())
+			frames = append(frames, f)
+		}
+		return nil
+	}); err != nil {
+		log.Println(err)
+	}
+
+	return frames
+}
+
+func GetNewFrame(pathToImg string) Frame {
 	f := &frame{}
 	if err := f.SetImage(pathToImg); err != nil {
 		log.Println(err)
 		return nil
 	}
-	f.SetSize(width, height)
 
 	return f
 }
 
 func (f *frame) SetAllowedDirections(directions []int) Frame {
 	f.allowedDirections = directions
+
+	return f
+}
+
+func (f *frame) GetImgName() string {
+	return f.imgName
+}
+
+func (f *frame) SetImgName(name string) Frame {
+	f.imgName = name
 
 	return f
 }

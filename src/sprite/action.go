@@ -92,9 +92,7 @@ func (a *action) Run() (Frame, float64, float64) {
 		}
 		v = a.vectors[a.currentFrameIdx]
 	}
-	if a.currentFrame == nil {
-		a.currentFrame = a.frames[a.currentFrameIdx]
-	}
+	a.currentFrame = a.frames[a.currentFrameIdx]
 
 	a.x, a.y = v.Apply(a.x, a.y)
 

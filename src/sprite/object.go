@@ -6,12 +6,13 @@ import (
 )
 
 type object struct {
-	actions       map[string]Action // key action name
-	activeAction  Action
-	defaultAction Action
-	x, y          float64
-	cx, cy        int
-	direction     int // -1 0 +1
+	actions           map[string]Action // key action name
+	activeAction      Action
+	defaultAction     Action
+	x, y              float64
+	cx, cy            int
+	direction         int   // -1 0 +1
+	allowedDirections []int // -1 0 +1
 }
 
 func GetNewObject(x, y float64, defaultAction Action) Object {
@@ -60,6 +61,7 @@ func (obj *object) Show() Object {
 		a = obj.defaultAction
 	}
 
+	a.SetX(obj.x).SetY(obj.y).SetDirection(obj.direction)
 	f, x, y := a.Run()
 	obj.SetPosition(x, y)
 	f.Show(obj.Cx(), obj.Cy())
@@ -99,6 +101,12 @@ func (obj *object) SetDirection(direction int) Object {
 	}
 
 	obj.direction = direction
+
+	return obj
+}
+
+func (obj *object) SetAllowedDirections(directions []int) Object {
+	obj.allowedDirections = directions
 
 	return obj
 }

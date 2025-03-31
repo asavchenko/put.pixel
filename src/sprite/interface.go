@@ -19,6 +19,7 @@ type Object interface { // or maybe better call it Sprite
 	Cx() int
 	Cy() int
 	SetDirection(direction int) Object
+	SetAllowedDirections([]int) Object
 }
 
 type Action interface {
@@ -44,6 +45,8 @@ type Frame interface {
 	Show(x, y int) Frame
 	SetDirection(int) Frame
 	SetAllowedDirections([]int) Frame
+	GetImgName() string
+	SetImgName(string) Frame
 }
 
 type Vector interface {

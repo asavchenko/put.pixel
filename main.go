@@ -1,6 +1,7 @@
 package main
 
 import (
+	"assa.com/put.pixel/src/characters"
 	"fmt"
 	"runtime"
 	"time"
@@ -26,10 +27,16 @@ func main() {
 	w := ogl.GetWindowWidth()
 	h := ogl.GetWindowHeight()
 	log(w, h)
+	x := float64(w) / 4
+	y := float64(w) / 4
+	mainCh := characters.GetSprite(x, y)
 	ogl.Init(false)
 	defer ogl.Close()
 	ogl.OnKeypress(ogl.KEY_ESC, func() {
 		ogl.CloseWindow()
+	})
+	ogl.OnKeypress(ogl.KEY_RIGHT, func() {
+		x += 1
 	})
 
 	start := time.Now()
@@ -38,7 +45,8 @@ func main() {
 			break
 		}
 		ogl.Draw(func() {
-
+			mainCh.SetPosition(x, y)
+			mainCh.Show()
 		})
 		// 59.95 Hz
 		// 1 * time.Millisecond * x = 1/59.95

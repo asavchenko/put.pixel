@@ -78,9 +78,9 @@ func Init(fullScreen bool) {
 	version := gl.GoStr(gl.GetString(gl.VERSION))
 	fmt.Println("OpenGL version", version)
 
-	gl.Enable(gl.BLEND)
-	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
-	gl.ClearColor(0.0, 0.0, 0.0, 0.0)
+	//gl.Enable(gl.BLEND)
+	//gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+	//gl.ClearColor(0.0, 0.0, 0.0, 0.0)
 	gl.GenBuffers(1, &buffers[0])
 	glfw.SwapInterval(1)
 
@@ -204,6 +204,7 @@ func draw(window *glfw.Window, run func()) {
 
 	//copy((*[width * height * 3]byte)(pboPtr)[:width*height*3], pixelArr)
 	ClearScreenRGBA()
+
 	run()
 
 	gl.DrawPixels(width, height, gl.RGBA, gl.UNSIGNED_BYTE, nil)
@@ -297,6 +298,7 @@ func ClearScreen() {
 	}
 }
 func ClearScreenRGBA() {
+	//gl.Clear(gl.COLOR_BUFFER_BIT)
 	for i := range pixelArrRGBA {
 		pixelArrRGBA[i] = 0
 	}

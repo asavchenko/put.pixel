@@ -1,6 +1,8 @@
 package sprite
 
-import "math"
+import (
+	"math"
+)
 
 type vector struct {
 	angle             float64
@@ -9,6 +11,16 @@ type vector struct {
 	currentCycle      int
 	direction         int
 	allowedDirections []int
+}
+
+func GetDefaultVectors(n int, keepCycles int) []Vector {
+	vectors := make([]Vector, n)
+	for i := 0; i < n; i++ {
+		vectors[i] = GetNewVector(0, 0, keepCycles)
+		vectors[i].SetAllowedDirections([]int{DIRECTION_RIGHT, DIRECTION_LEFT})
+	}
+
+	return vectors
 }
 
 func GetNewVector(a float64, s float64, durationInCycles int) Vector {
@@ -20,8 +32,10 @@ func GetNewVector(a float64, s float64, durationInCycles int) Vector {
 
 	return v
 }
+
 func (v *vector) SetAllowedDirections(directions []int) Vector {
 	v.allowedDirections = directions
+
 	return v
 }
 
