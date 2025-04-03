@@ -2,6 +2,9 @@ package sprite
 
 import (
 	"math"
+	"strings"
+
+	"assa.com/put.pixel/lib/convertor"
 )
 
 type vector struct {
@@ -13,11 +16,21 @@ type vector struct {
 	allowedDirections []int
 }
 
-func GetDefaultVectors(n int, keepCycles int) []Vector {
-	vectors := make([]Vector, n)
-	for i := 0; i < n; i++ {
-		vectors[i] = GetNewVector(0, 0, keepCycles)
+func GetDefaultVectors(frames []Frame, keepCycles int) []Vector {
+	vectors := make([]Vector, len(frames))
+	for i := 0; i < len(frames); i++ {
+		frameName := frames[i].GetImgName()
+		nameParts := strings.Split(frameName, "_")
+		speed := float64(0)
+		angle := float64(0)
+		if len(nameParts) > 2 {
+			speed = convertor.ToFloat64IgnoreErrors(nameParts[1])
+			angle = convertor.ToFloat64IgnoreErrors(nameParts[2]) * math.Pi / 180
+			keepCycles = convertor.ToIntIgnoreErrors(strings.Replace(nameParts[3], ".png", "", -1))
+		}
+		vectors[i] = GetNewVector(angle, speed, keepCycles)
 		vectors[i].SetAllowedDirections([]int{DIRECTION_RIGHT, DIRECTION_LEFT})
+		vectors[i].SetDirection(frames[i].GetDirection())
 	}
 
 	return vectors
@@ -50,11 +63,10 @@ func (v *vector) SetDirection(direction int) Vector {
 	if !found {
 		return v
 	}
-	if !v.IsApplied() && v.direction != direction {
-		return v
-	}
 
-	if direction != v.direction {
+	if direction == DIRECTION_LEFT && v.direction == DIRECTION_RIGHT {
+		v.flip()
+	} else if direction == DIRECTION_RIGHT && v.direction == DIRECTION_LEFT {
 		v.flip()
 	}
 
@@ -83,6 +95,10 @@ func (v *vector) SetDurationInCycles(n int) Vector {
 
 func (v *vector) IsApplied() bool {
 	return v.currentCycle >= v.applyNumCycles
+}
+
+func (v *vector) GetSpeed() float64 {
+	return v.speed
 }
 
 func (v *vector) Reset() Vector {
@@ -114,5 +130,4 @@ func (v *vector) flip() {
 	case DIRECTION_RIGHT:
 		v.angle += math.Pi - v.angle*2
 	}
-
 }

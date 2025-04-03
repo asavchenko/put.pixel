@@ -83,7 +83,6 @@ func (a *action) Stop() error {
 
 func (a *action) Run() (Frame, float64, float64) {
 	v := a.vectors[a.currentFrameIdx]
-	v.SetDirection(a.direction)
 	if v.IsApplied() {
 		v.Reset()
 		a.currentFrameIdx++
@@ -93,10 +92,11 @@ func (a *action) Run() (Frame, float64, float64) {
 		v = a.vectors[a.currentFrameIdx]
 	}
 	a.currentFrame = a.frames[a.currentFrameIdx]
-
+	a.currentFrame.SetDirection(a.direction)
+	v.SetDirection(a.direction)
 	a.x, a.y = v.Apply(a.x, a.y)
 
-	return a.currentFrame.SetDirection(a.direction), a.x, a.y
+	return a.currentFrame, a.x, a.y
 }
 
 func (a *action) IsComplete() bool {
@@ -117,6 +117,18 @@ func (a *action) SetDirection(direction int) Action {
 	if !found {
 		return a
 	}
+
+	if a.direction == direction {
+		return a
+	}
+
+	//if direction == DIRECTION_LEFT && a.direction == DIRECTION_RIGHT {
+	//	utils.ReverseSlice(a.frames)
+	//	utils.ReverseSlice(a.vectors)
+	//} else if direction == DIRECTION_RIGHT && a.direction == DIRECTION_LEFT {
+	//	utils.ReverseSlice(a.frames)
+	//	utils.ReverseSlice(a.vectors)
+	//}
 
 	a.direction = direction
 

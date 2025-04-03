@@ -9,7 +9,7 @@ const (
 
 type Object interface { // or maybe better call it Sprite
 	Start(actionName string) error
-	Cancel() error
+	Stop() error
 	Show() Object // will be called each gl.draw cycle
 	AddAction(Action) Object
 	SetDefaultAction(Action) Object
@@ -44,6 +44,7 @@ type Frame interface {
 	GetHeight() int
 	Show(x, y int) Frame
 	SetDirection(int) Frame
+	GetDirection() int
 	SetAllowedDirections([]int) Frame
 	GetImgName() string
 	SetImgName(string) Frame
@@ -52,6 +53,7 @@ type Frame interface {
 type Vector interface {
 	SetAngle(angle float64) Vector
 	SetSpeed(speed float64) Vector
+	GetSpeed() float64
 	SetDurationInCycles(n int) Vector
 	Apply(x, y float64) (float64, float64)
 	IsApplied() bool

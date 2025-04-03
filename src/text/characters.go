@@ -98,13 +98,13 @@ func (a *area) MoveView(dx, dy int) {
 func (a *area) SetViewPortWidth(w int) {
 	a.vp.w = w
 	a.nw = a.vp.w / GetCharacterWidth(a.fontSize)
-	log.Println("nw:", a.nw)
+	log.Info("nw:", a.nw)
 }
 
 func (a *area) SetViewPortHeight(h int) {
 	a.vp.h = h
 	a.nh = a.vp.h / a.ch
-	log.Println("nh:", a.nh)
+	log.Info("nh:", a.nh)
 }
 
 func (a *area) SetFontSize(fontSize int) {
@@ -112,9 +112,9 @@ func (a *area) SetFontSize(fontSize int) {
 	a.ch = GetLineSpaceSize(fontSize) + GetCharacterHeight(fontSize)
 	a.nw = a.vp.w / GetCharacterWidth(fontSize)
 	a.nh = a.vp.h / a.ch
-	log.Println("fontSize:", a.fontSize, "a.ch:", a.ch, "a.nw:", a.nw, "a.nh:", a.nh)
+	log.Info("fontSize:", a.fontSize, "a.ch:", a.ch, "a.nw:", a.nw, "a.nh:", a.nh)
 	if a.text != "" {
-		log.Println("calling init")
+		log.Info("calling init")
 		a.init()
 	}
 }
@@ -127,7 +127,7 @@ func (a *area) SetFontColor(color uint32) {
 }
 
 func (a *area) SetText(text string) {
-	log.Println("loading text")
+	log.Info("loading text")
 	a.text = text
 	a.init()
 }
@@ -228,7 +228,7 @@ func (a *area) load() {
 		x += ch.GetWidth()
 		curColumn++
 	}
-	log.Println("num characters:", len(a.chrs))
+	log.Info("num characters:", len(a.chrs))
 }
 
 func (a *area) GetViewPortPosition() (int, int) {

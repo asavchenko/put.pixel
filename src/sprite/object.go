@@ -36,11 +36,16 @@ func (obj *object) Start(actionName string) error {
 	return a.SetX(obj.x).SetY(obj.y).Reset()
 }
 
-func (obj *object) Cancel() error {
+func (obj *object) Stop() error {
 	if obj.activeAction == nil {
 		return nil
 	}
-	return obj.activeAction.Stop()
+	if err := obj.activeAction.Stop(); err != nil {
+		return err
+	}
+	obj.activeAction = nil
+
+	return nil
 }
 
 func (obj *object) SetDefaultAction(defaultAction Action) Object {

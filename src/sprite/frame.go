@@ -21,11 +21,11 @@ type frame struct {
 	imgName           string
 }
 
-func GetFrames(pathToFolder string) []Frame {
+func GetFrames(pathToFolder string, allowedDirections []int, direction int) []Frame {
 	frames := make([]Frame, 0)
 	if err := filepath.Walk(pathToFolder, func(path string, info os.FileInfo, err error) error {
-		if info.IsDir() {
-			return nil
+		if info.IsDir() && pathToFolder != path {
+			return filepath.SkipDir
 		}
 		if !strings.Contains(info.Name(), ".png") {
 			return nil
@@ -33,11 +33,13 @@ func GetFrames(pathToFolder string) []Frame {
 		f := GetNewFrame(path)
 		if f != nil {
 			f.SetImgName(info.Name())
+			f.SetAllowedDirections(allowedDirections)
+			f.SetDirection(direction)
 			frames = append(frames, f)
 		}
 		return nil
 	}); err != nil {
-		log.Println(err)
+		log.Info(err)
 	}
 
 	return frames
@@ -46,7 +48,7 @@ func GetFrames(pathToFolder string) []Frame {
 func GetNewFrame(pathToImg string) Frame {
 	f := &frame{}
 	if err := f.SetImage(pathToImg); err != nil {
-		log.Println(err)
+		log.Info(err)
 		return nil
 	}
 
@@ -67,6 +69,10 @@ func (f *frame) SetImgName(name string) Frame {
 	f.imgName = name
 
 	return f
+}
+
+func (f *frame) GetDirection() int {
+	return f.direction
 }
 
 func (f *frame) GetWidth() int {
@@ -131,10 +137,13 @@ func (f *frame) SetDirection(direction int) Frame {
 	}
 
 	if !found {
+		log.Error("direction", direction, "is not allowed", "allowed directions are:", f.allowedDirections)
 		return f
 	}
 
-	if direction != f.direction {
+	if direction == DIRECTION_LEFT && f.direction == DIRECTION_RIGHT {
+		f.flip()
+	} else if direction == DIRECTION_RIGHT && f.direction == DIRECTION_LEFT {
 		f.flip()
 	}
 
@@ -197,16 +206,18 @@ func (f *frame) resize(width, height int) Frame {
 }
 
 func (f *frame) Show(x, y int) Frame {
-	ogl.PutBitmap(x, y, f.width, f.height, f.imgData)
+	w2 := f.width / 2
+	h2 := f.height / 2
+	ogl.PutBitmap(x-w2, y+h2, f.width, f.height, f.imgData)
 
 	return f
 }
 
 func (f *frame) flip() {
-	idx := f.width
-	for j := 0; j < f.height; j++ {
-		for i := 0; i < f.width; i++ {
-			f.imgData[idx+i], f.imgData[idx+f.width-1-i] = f.imgData[idx+f.width-1-i], f.imgData[idx+i]
+	idx := 0
+	for y := 0; y < f.height; y++ {
+		for i, j := 0, f.width-1; i < j; i, j = i+1, j-1 {
+			f.imgData[idx+i], f.imgData[idx+j] = f.imgData[idx+j], f.imgData[idx+i]
 		}
 
 		idx += f.width

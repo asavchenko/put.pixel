@@ -111,8 +111,8 @@ func (reader *pngReader) GetBytesPerPixel() int {
 
 func (reader *pngReader) GetImageData() ([]byte, error) {
 	width := reader.GetImageWidth()
-	height := reader.GetImageHeight()
-	log("width:", width, "height:", height)
+	//height := reader.GetImageHeight()
+	//log("width:", width, "height:", height)
 	// Bit depth is a single-byte integer giving the number of bits per sample or per palette index (not per pixel).
 	// Valid values are 1, 2, 4, 8, and 16, although not all values are allowed for all color types.
 	// Color type is a single-byte integer that describes the interpretation of the image data.
@@ -184,11 +184,11 @@ func (reader *pngReader) GetImageData() ([]byte, error) {
 	case 6: // Each pixel is an R,G,B triple, followed by an alpha sample.
 		switch reader.GetBitDepth() {
 		case 8:
-			log("it's a RGB with alpha image with 256 shades")
+			//log("it's a RGB with alpha image with 256 shades")
 			rowLen = 4 * width
 			bpp = 4
 		case 16:
-			log("it's a RGB with alpha image with 65536 shades")
+			//log("it's a RGB with alpha image with 65536 shades")
 			rowLen = 8 * width
 			bpp = 8
 		}
@@ -206,11 +206,11 @@ func (reader *pngReader) filterImage(rowLen int, bpp int) ([]byte, error) {
 		return reader.filterInterlacedImage(rowLen, bpp)
 	}
 	filteredData := make([]byte, rowLen*height)
-	log(len(filteredData), rowLen, height, bpp)
+	//log(len(filteredData), rowLen, height, bpp)
 	data := reader.GetRawImageData()
-	log("decoded", len(data))
+	//log("decoded", len(data))
 	br := bitreader.GetNewSliceBitReader(data)
-	log("row length is", rowLen)
+	//log("row length is", rowLen)
 	for i := 0; i < height; i++ {
 		if err := br.GoToNextByte(); err != nil {
 			logError(err)
@@ -439,7 +439,8 @@ func GetNew(pathToImage string) (PNGReader, error) {
 	reader.f = pngFile
 
 	r := bitreader.GetNewFileBitReader(pngFile)
-	header, err := r.GetBytes(8)
+	//header, err := r.GetBytes(8)
+	_, err = r.GetBytes(8)
 	if err != nil {
 		logError(err)
 		return nil, err
@@ -451,10 +452,10 @@ func GetNew(pathToImage string) (PNGReader, error) {
 	reader.compressionMethod = byte(0) //  1 byte
 	reader.filterMethod = byte(0)      //  1 byte
 	reader.interlaceMethod = byte(0)   //  1 byte
-	log(printBytes(header))
+	//log(printBytes(header))
 	idatChunks := make([]byte, 0)
 	for {
-		log("==================================================================================================")
+		//log("==================================================================================================")
 		chunkLenBytes, err := r.GetBytes(4)
 		if err != nil {
 			logError(err)
@@ -465,7 +466,7 @@ func GetNew(pathToImage string) (PNGReader, error) {
 		// so
 
 		chunkLen := int(chunkLenBytes[3]) + int(uint32(chunkLenBytes[2])<<8) + int(uint32(chunkLenBytes[1])<<16) + int(uint32(chunkLenBytes[0])<<24)
-		log("chunk length:", chunkLen, printBytes(chunkLenBytes))
+		//log("chunk length:", chunkLen, printBytes(chunkLenBytes))
 		chunkTypeBytes, err := r.GetBytes(4)
 		if err != nil {
 			logError(err)
@@ -479,19 +480,19 @@ func GetNew(pathToImage string) (PNGReader, error) {
 
 		Chunks that are necessary for successful display of the file's contents are called "critical" chunks. A decoder encountering an unknown chunk in which the ancillary bit is 0 must indicate to the user that the image contains information it cannot safely interpret. The image header chunk (IHDR) is an example of a critical chunk.
 		*/
-		log("Ancillary bit:", r.GetNthBitInByte(chunkTypeBytes[0], 5))
+		//log("Ancillary bit:", r.GetNthBitInByte(chunkTypeBytes[0], 5))
 		/**
 		Private bit: bit 5 of second byte
 		0 (uppercase) = public, 1 (lowercase) = private.
 		A public chunk is one that is part of the PNG specification or is registered in the list of PNG special-purpose public chunk types. Applications can also define private (unregistered) chunks for their own purposes. The names of private chunks must have a lowercase second letter, while public chunks will always be assigned names with uppercase second letters. Note that decoders do not need to test the private-chunk property bit, since it has no functional significance; it is simply an administrative convenience to ensure that public and private chunk names will not conflict. See Additional chunk types, and Recommendations for Encoders: Use of private chunks.
 		*/
-		log("Private bit:", r.GetNthBitInByte(chunkTypeBytes[1], 5))
+		//log("Private bit:", r.GetNthBitInByte(chunkTypeBytes[1], 5))
 		/**
 		Reserved bit: bit 5 of third byte
 		Must be 0 (uppercase) in files conforming to this version of PNG.
 		The significance of the case of the third letter of the chunk name is reserved for possible future expansion. At the present time all chunk names must have uppercase third letters. (Decoders should not complain about a lowercase third letter, however, as some future version of the PNG specification could define a meaning for this bit. It is sufficient to treat a chunk with a lowercase third letter in the same way as any other unknown chunk type.)
 		*/
-		log("Reserved bit:", r.GetNthBitInByte(chunkTypeBytes[2], 5))
+		//log("Reserved bit:", r.GetNthBitInByte(chunkTypeBytes[2], 5))
 
 		/*
 			Safe-to-copy bit: bit 5 of fourth byte
@@ -513,7 +514,7 @@ func GetNew(pathToImage string) (PNGReader, error) {
 
 				Rules for PNG editors are discussed further in Chunk Ordering Rules.
 		*/
-		log("Safe-to-copy bit:", r.GetNthBitInByte(chunkTypeBytes[3], 5))
+		//log("Safe-to-copy bit:", r.GetNthBitInByte(chunkTypeBytes[3], 5))
 
 		switch string(rune(chunkTypeBytes[0])) + string(rune(chunkTypeBytes[1])) + string(rune(chunkTypeBytes[2])) + string(rune(chunkTypeBytes[3])) {
 		case "IHDR":
@@ -523,7 +524,7 @@ func GetNew(pathToImage string) (PNGReader, error) {
 			}
 			continue
 		case "IEND":
-			log("it's IEND")
+			//log("it's IEND")
 			if err := reader.handleIDATChunks(idatChunks); err != nil {
 				logError(err)
 				return nil, err
@@ -566,7 +567,7 @@ func GetNew(pathToImage string) (PNGReader, error) {
 			}
 			continue
 		case "IDAT":
-			log("it's IDAT")
+			//log("it's IDAT")
 			if data, err := r.GetBytes(chunkLen + 4); err != nil {
 				return nil, err
 			} else {
@@ -574,10 +575,10 @@ func GetNew(pathToImage string) (PNGReader, error) {
 				continue
 			}
 		default:
-			log("it's", string(rune(chunkTypeBytes[0]))+string(rune(chunkTypeBytes[1]))+string(rune(chunkTypeBytes[2]))+string(rune(chunkTypeBytes[3])))
+			//log("it's", string(rune(chunkTypeBytes[0]))+string(rune(chunkTypeBytes[1]))+string(rune(chunkTypeBytes[2]))+string(rune(chunkTypeBytes[3])))
 		}
 		if r.GetNthBitInByte(chunkTypeBytes[0], 5) == 1 {
-			log("skipping it's an optional chunk")
+			//log("skipping it's an optional chunk")
 		}
 		if _, err := r.GetBytes(chunkLen + 4); err != nil {
 			return nil, err
@@ -623,15 +624,16 @@ func (reader *pngReader) handleIDATChunks(idatChunks []byte) error {
 	// of CINFO above 7 are not allowed in this version of the
 	// specification.  CINFO is not defined in this specification for
 	//	CM not equal to 8.
-	cmf, err := cr.GetBits(8)
+	//cmf, err := cr.GetBits(8)
+	_, err := cr.GetBits(8)
 	if err != nil {
 		logError(err)
 		return err
 	}
-	log("CM:", cmf[7], cmf[6], cmf[5], cmf[4], "=", cmf[4]+cmf[5]*2+cmf[6]*2*2+cmf[7]*2*2*2)
-	cinfo := []byte{cmf[3], cmf[2], cmf[1], cmf[0]}
+	//log("CM:", cmf[7], cmf[6], cmf[5], cmf[4], "=", cmf[4]+cmf[5]*2+cmf[6]*2*2+cmf[7]*2*2*2)
+	//cinfo := []byte{cmf[3], cmf[2], cmf[1], cmf[0]}
 
-	log("CINFO:", cinfo[0], cinfo[1], cinfo[2], cinfo[3], "=", cinfo[3]+cinfo[2]*2+cinfo[1]*2*2+cinfo[0]*2*2*2)
+	//log("CINFO:", cinfo[0], cinfo[1], cinfo[2], cinfo[3], "=", cinfo[3]+cinfo[2]*2+cinfo[1]*2*2+cinfo[0]*2*2*2)
 	// FLG (FLaGs)
 	// This flag byte is divided as follows:
 	//
@@ -661,7 +663,8 @@ func (reader *pngReader) handleIDATChunks(idatChunks []byte) error {
 	//
 	// The information in FLEVEL is not needed for decompression; it
 	// is there to indicate if recompression might be worthwhile.
-	fcheck, err := cr.GetBits(5)
+	_, err = cr.GetBits(5)
+	//fcheck, err := cr.GetBits(5)
 	if err != nil {
 		logError(err)
 		return err
@@ -677,14 +680,15 @@ func (reader *pngReader) handleIDATChunks(idatChunks []byte) error {
 			return err
 		}
 	}
-	flevel, err := cr.GetBits(2)
+	//flevel, err := cr.GetBits(2)
+	_, err = cr.GetBits(2)
 	if err != nil {
 		logError(err)
 		return err
 	}
-	log("FCHECK", fcheck[0], fcheck[1], fcheck[2], fcheck[3], fcheck[4])
-	log("FDICT", fdict[0])
-	log("FLEVEL", flevel[0], flevel[1])
+	//log("FCHECK", fcheck[0], fcheck[1], fcheck[2], fcheck[3], fcheck[4])
+	//log("FDICT", fdict[0])
+	//log("FLEVEL", flevel[0], flevel[1])
 	for {
 		if !cr.HasMoreData() {
 			break
@@ -703,7 +707,7 @@ func (reader *pngReader) handleIDATChunks(idatChunks []byte) error {
 		//				01 - compressed with fixed Huffman codes
 		//				10 - compressed with dynamic Huffman codes
 		//				11 - reserved (error)
-		log("HEADER", headerBits[0], headerBits[1], headerBits[2])
+		//log("HEADER", headerBits[0], headerBits[1], headerBits[2])
 		switch fmt.Sprint(headerBits[2]) + fmt.Sprint(headerBits[1]) {
 		case "00": // - no compression
 			if err := reader.handleNoCompression(cr); err != nil {
@@ -732,7 +736,7 @@ func (reader *pngReader) handleIDATChunks(idatChunks []byte) error {
 }
 
 func (reader *pngReader) handleIHDRChunk(r bitreader.BitReader, chunkLen int) error {
-	log("it's IHDR")
+	//log("it's IHDR")
 	/*
 		The IHDR chunk must appear FIRST. It contains:
 
@@ -754,18 +758,18 @@ func (reader *pngReader) handleIHDRChunk(r bitreader.BitReader, chunkLen int) er
 		reader.compressionMethod = data[10]
 		reader.filterMethod = data[11]
 		reader.interlaceMethod = data[12]
-		log("width:", reader.width)
-		log("height:", reader.height)
+		//log("width:", reader.width)
+		//log("height:", reader.height)
 		// Bit depth is a single-byte integer giving the number of bits per sample or per palette index (not per pixel).
 		// Valid values are 1, 2, 4, 8, and 16, although not all values are allowed for all color types.
-		log("bit depth:", reader.bitDepth)
+		//log("bit depth:", reader.bitDepth)
 		// Color type is a single-byte integer that describes the interpretation of the image data.
 		// Color type codes represent sums of the following values:
 		// 1 (palette used),
 		// 2 (color used),
 		// and 4 (alpha channel used).
 		// Valid values are 0, 2, 3, 4, and 6.
-		log("color type:", reader.colorType)
+		//log("color type:", reader.colorType)
 		//  Color    Allowed    Interpretation
 		//   Type    Bit Depths
 		//
@@ -781,7 +785,7 @@ func (reader *pngReader) handleIHDRChunk(r bitreader.BitReader, chunkLen int) er
 		//
 		//   6       8,16        Each pixel is an R,G,B triple,
 		//                       followed by an alpha sample.
-		log("compression method:", reader.compressionMethod)
+		//log("compression method:", reader.compressionMethod)
 		// Compression method is a single-byte integer that indicates the method used to compress the image data.
 		// At present, only compression method 0 (deflate/inflate compression with a sliding window of at most 32768 bytes) is defined.
 		// All standard PNG images must be compressed with this scheme.
@@ -789,13 +793,13 @@ func (reader *pngReader) handleIHDRChunk(r bitreader.BitReader, chunkLen int) er
 		// Decoders must check this byte and report an error if it holds an unrecognized code.
 		// See Deflate/Inflate Compression for details.
 
-		log("filter method:", reader.filterMethod)
+		//log("filter method:", reader.filterMethod)
 		// Filter method is a single-byte integer that indicates the preprocessing method
 		// applied to the image data before compression.
 		// At present, only filter method 0 (adaptive filtering with five basic filter types) is defined.
 		// As with the compression method field, decoders must check this byte and report an error
 		// if it holds an unrecognized code. See Filter Algorithms for details.
-		log("interlace method:", reader.interlaceMethod)
+		//log("interlace method:", reader.interlaceMethod)
 		// Interlace method is a single-byte integer that indicates the transmission order of the image data.
 		// Two values are currently defined: 0 (no interlace) or 1 (Adam7 interlace).
 		// See Interlaced data order for details.
@@ -812,7 +816,7 @@ func (reader *pngReader) handleDynamicHuffman(cr bitreader.BitReader) error {
 		return err
 	}
 	hlit := int(nLit[0]+nLit[1]*2+nLit[2]*2*2+nLit[3]*2*2*2+nLit[4]*2*2*2*2) + 257
-	log("the number of literal codes:", nLit[0], nLit[1], nLit[2], nLit[3], nLit[4], "=", hlit)
+	//log("the number of literal codes:", nLit[0], nLit[1], nLit[2], nLit[3], nLit[4], "=", hlit)
 
 	nDist, err := cr.GetBits(5)
 	if err != nil {
@@ -820,14 +824,14 @@ func (reader *pngReader) handleDynamicHuffman(cr bitreader.BitReader) error {
 		return err
 	}
 	hdist := int(nDist[0]+nDist[1]*2+nDist[2]*2*2+nDist[3]*2*2*2+nDist[4]*2*2*2*2) + 1
-	log("the number of distance codes:", nDist[0], nDist[1], nDist[2], nDist[3], nDist[4], "=", hdist)
+	//log("the number of distance codes:", nDist[0], nDist[1], nDist[2], nDist[3], nDist[4], "=", hdist)
 	nLength, err := cr.GetBits(4)
 	if err != nil {
 		logError(err)
 		return err
 	}
 	nLen := int(nLength[0] + nLength[1]*2 + nLength[2]*2*2 + nLength[3]*2*2*2)
-	log("the number of length codes:", nLength[0], nLength[1], nLength[2], nLength[3], "=", nLen)
+	//log("the number of length codes:", nLength[0], nLength[1], nLength[2], nLength[3], "=", nLen)
 	lengthCodes, err := cr.GetBits((nLen + 4) * 3)
 	if err != nil {
 		logError(err)
@@ -850,7 +854,7 @@ func (reader *pngReader) handleDynamicHuffman(cr bitreader.BitReader) error {
 	}
 
 	canonicalHuffmanCodingMapForLengthsTree := getCanonicalHuffmanCodingMapForLengthsTree(lenHCodes, lenDictionaryMap)
-	log("canonicalHuffmanCodingMapForLengthsTree:", canonicalHuffmanCodingMapForLengthsTree)
+	//log("canonicalHuffmanCodingMapForLengthsTree:", canonicalHuffmanCodingMapForLengthsTree)
 	// we have our tree that has compressed the bit lengths for the other two trees,
 	// as you see this tree doesn't have a stop code, so how many symbols must we decode?
 	// well we have a total of ( hlit + hdist ) codes we will decode using this tree,
@@ -943,8 +947,9 @@ func (reader *pngReader) handleDynamicHuffman(cr bitreader.BitReader) error {
 	//log("dist tree:", distTree)
 	//log("-------------------")
 	//log("starting to decompress")
-	d, err := reader.decodeLZ77(cr, litTree, distTree)
-	log("decoded LZ77", len(d))
+	_, err = reader.decodeLZ77(cr, litTree, distTree)
+	//d, err := reader.decodeLZ77(cr, litTree, distTree)
+	//log("decoded LZ77", len(d))
 	if err != nil {
 		logError(err)
 		return err
@@ -1102,7 +1107,7 @@ func (reader *pngReader) decodeLZ77(cr bitreader.BitReader, litTree, distTree ma
 				continue
 			}
 			if val == 256 { // STOP
-				log("STOP", cr.HasMoreData())
+				//log("STOP", cr.HasMoreData())
 				break
 			}
 			d, l, err := getDistanceLength(cr, val, distTree)
@@ -1581,7 +1586,7 @@ func decodeTree(dist int, cr bitreader.BitReader, canonicalHuffmanCodingMapForLe
 
 func getCanonicalHuffmanCodingMapForLengthsTree(lenHCodes map[int]int, lenDictionaryMap map[int]int) map[string]int {
 	canonicalHuffmanCodingMap := getCanonicalHuffmanCodingMap(lenHCodes)
-	log(canonicalHuffmanCodingMap)
+	//log(canonicalHuffmanCodingMap)
 	result := make(map[string]int, 0)
 	for l := 0; l <= 18; l++ {
 		n := lenDictionaryMap[l]
@@ -1597,7 +1602,7 @@ func getCanonicalHuffmanCodingMapForLengthsTree(lenHCodes map[int]int, lenDictio
 }
 
 func getCanonicalHuffmanCodingMap(dictionary map[int]int) map[int][]string {
-	log(dictionary)
+	//log(dictionary)
 	keysSorted := make([]int, 0)
 	for k, _ := range dictionary {
 		keysSorted = append(keysSorted, k)
